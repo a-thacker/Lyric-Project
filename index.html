@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Lyric Overlay Tool</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;font-family:system-ui,sans-serif;font-size:13px}
+
+/* ══ LEFT — video pane (exactly 50%) ══ */
+.video-pane{
+  width:50%;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;
+  gap:10px;padding:12px;
+  border-right:1px solid #2a2a2a;
+}
+
+.load-row{display:flex;align-items:center;gap:8px;width:100%}
+.load-row label{color:#666;white-space:nowrap;font-size:12px}
+.load-row input[type=file]{flex:1;min-width:0;color:#aaa;font-size:11px;background:none;border:none}
+
+.video-wrap{
+  position:relative;width:100%;flex:1;min-height:0;
+  background:#000;border-radius:10px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.video-inner{
+  position:relative;height:100%;aspect-ratio:9/16;max-width:100%;
+}
+.video-inner video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#pc{position:absolute;inset:0;width:100%;height:100%}
+
+.transport{display:flex;gap:6px;width:100%}
+.transport button{
+  flex:1;padding:9px 4px;border:none;border-radius:7px;
+  cursor:pointer;font-weight:700;font-size:12px;
+  transition:filter .12s,opacity .12s;white-space:nowrap;
+}
+.transport button:disabled{opacity:.3;cursor:default;pointer-events:none}
+.transport button:not(:disabled):hover{filter:brightness(1.2)}
+
+#playBtn  {background:#ff5722;color:#fff}
+#pauseBtn {background:#2a2a2a;color:#ccc;border:1px solid #333}
+#resetBtn {background:#1a1a1a;color:#777;border:1px solid #2a2a2a}
+#exportBtn{background:#1e5c32;color:#7eff9e}
+
+#status{
+  font-size:11px;color:#555;text-align:center;width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:14px;
+}
+
+/* ══ RIGHT — lyrics pane (exactly 50%) ══ */
+.lyrics-pane{
+  width:50%;flex-shrink:0;
+  display:flex;flex-direction:column;
+  background:#111;position:relative;overflow:hidden;
+}
+
+/* Header bar — title + gear */
+.lyrics-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid #1e1e1e;flex-shrink:0;
+}
+.lyrics-title{
+  font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:#444;
+}
+.lyrics-state-badge{
+  font-size:10px;font-weight:700;letter-spacing:.06em;
+  padding:3px 7px;border-radius:10px;
+  background:#1e1e1e;color:#555;
+  transition:background .2s,color .2s;
+}
+.lyrics-state-badge.recording{background:#ff5722;color:#fff}
+.lyrics-state-badge.paused{background:#333;color:#ff9960}
+
+#settingsToggle{
+  background:none;border:none;cursor:pointer;
+  color:#444;font-size:17px;padding:3px 6px;border-radius:5px;
+  transition:color .12s,background .12s;line-height:1;
+}
+#settingsToggle:hover{color:#ccc;background:#1e1e1e}
+#settingsToggle.active{color:#ff5722}
+
+/* ── Edit area (textarea) ── */
+#editArea{
+  flex:1;display:flex;flex-direction:column;gap:8px;
+  padding:10px 12px;min-height:0;
+}
+#editHint{font-size:11px;color:#333;padding:0 2px}
+#lta{
+  flex:1;resize:none;padding:10px;font-size:14px;line-height:1.65;
+  background:#0d0d0d;color:#ddd;
+  border:1px solid #1e1e1e;border-radius:8px;
+  font-family:system-ui,sans-serif;min-height:0;
+}
+#lta:focus{outline:none;border-color:#ff5722}
+#lta:disabled{color:#444;border-color:#161616;cursor:not-allowed;background:#0a0a0a}
+
+/* ── Perform list (overlays same space as textarea) ── */
+#performArea{
+  flex:1;display:flex;flex-direction:column;
+  min-height:0;overflow:hidden;
+}
+.perform-hint{
+  font-size:11px;color:#333;padding:8px 12px;flex-shrink:0;
+  border-bottom:1px solid #161616;
+}
+#lyricList{
+  flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px;
+}
+#lyricList::-webkit-scrollbar{width:4px}
+#lyricList::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
+.lyric-line{
+  padding:7px 10px;border-radius:6px;
+  font-size:14px;line-height:1.4;color:#3a3a3a;
+  border:1px solid transparent;transition:background .1s,color .1s;
+}
+.lyric-line.done{color:#252525}
+.lyric-line.active{
+  background:#ff5722;color:#fff;font-weight:700;
+  border-color:rgba(255,87,34,.4);
+}
+.lyric-line.next{color:#555}
+
+/* ══ Settings slide-in panel — overlays on top of lyrics pane ══ */
+#settingsPanel{
+  position:absolute;top:0;right:0;bottom:0;width:240px;
+  background:#141414;border-left:1px solid #222;
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .2s ease;
+  z-index:30;overflow-y:auto;
+}
+#settingsPanel.open{transform:translateX(0)}
+
+.sp-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;border-bottom:1px solid #1e1e1e;flex-shrink:0;
+}
+.sp-header span{font-weight:700;font-size:12px;color:#aaa;letter-spacing:.04em}
+#settingsClose{
+  background:none;border:none;cursor:pointer;
+  color:#444;font-size:20px;line-height:1;padding:0 4px;border-radius:4px;
+}
+#settingsClose:hover{color:#ccc}
+
+.sp-section{padding:12px 14px;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;gap:9px}
+.sp-section h3{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#444;font-weight:700}
+.sp-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sp-row label{color:#888;flex:1;font-size:12px}
+.sp-row select{background:#1e1e1e;color:#ddd;border:1px solid #2a2a2a;border-radius:5px;padding:4px 6px;font-size:12px}
+.sp-row input[type=range]{flex:1;accent-color:#ff5722}
+.sp-row input[type=checkbox]{accent-color:#ff5722;width:14px;height:14px;cursor:pointer}
+.sp-val{color:#ff5722;font-weight:700;font-size:12px;min-width:30px;text-align:right}
+
+/* ══ Encoding overlay ══ */
+#encOverlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+}
+#encOverlay.show{display:flex}
+#encOverlay p{font-size:14px;color:#ccc}
+.enc-bar{width:240px;height:6px;background:#222;border-radius:3px;overflow:hidden}
+.enc-fill{height:100%;width:0%;background:#ff5722;transition:width .15s}
+</style>
+</head>
+<body>
+
+<!-- ══ LEFT: video pane ══ -->
+<div class="video-pane">
+  <div class="load-row">
+    <label>Video</label>
+    <input type="file" accept="video/*" id="vInput">
+  </div>
+
+  <div class="video-wrap">
+    <div class="video-inner">
+      <video id="vid" playsinline></video>
+      <canvas id="pc"></canvas>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button id="playBtn"   disabled>▶ Play</button>
+    <button id="pauseBtn"  disabled>⏸ Pause</button>
+    <button id="resetBtn"  disabled>⟲ Reset</button>
+    <button id="exportBtn" disabled>⬇ Export</button>
+  </div>
+  <div id="status">Load a video to begin</div>
+</div>
+
+<!-- ══ RIGHT: lyrics pane ══ -->
+<div class="lyrics-pane">
+
+  <div class="lyrics-header">
+    <span class="lyrics-title">Lyrics</span>
+    <span class="lyrics-state-badge" id="stateBadge">Idle</span>
+    <button id="settingsToggle" title="Text settings">⚙</button>
+  </div>
+
+  <!-- Edit area — shown when idle or paused -->
+  <div id="editArea">
+    <div id="editHint">One line per bar — press Play to start recording</div>
+    <textarea id="lta" placeholder="Line 1&#10;Line 2&#10;Line 3"></textarea>
+  </div>
+
+  <!-- Perform list — shown while recording -->
+  <div id="performArea" style="display:none">
+    <div class="perform-hint">
+      <kbd style="background:#1e1e1e;padding:2px 6px;border-radius:3px;font-size:11px;color:#888">Right Shift</kbd>
+      &nbsp;to advance line
+    </div>
+    <div id="lyricList"></div>
+  </div>
+
+  <!-- Settings slide-in -->
+  <div id="settingsPanel">
+    <div class="sp-header">
+      <span>Text Settings</span>
+      <button id="settingsClose">×</button>
+    </div>
+
+    <div class="sp-section">
+      <h3>Style</h3>
+      <div class="sp-row">
+        <label>Bold glyphs</label>
+        <input type="checkbox" id="boldEnabled">
+      </div>
+      <div class="sp-row">
+        <label>Alignment</label>
+        <select id="textAlign">
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <h3>Shadow</h3>
+      <div class="sp-row">
+        <label>Enable</label>
+        <input type="checkbox" id="shadowEnabled" checked>
+      </div>
+      <div class="sp-row">
+        <label>Opacity</label>
+        <input type="range" id="shadowOpacity" min="0" max="100" value="50">
+        <span class="sp-val" id="shadowValue">50%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Encoding overlay -->
+<div id="encOverlay">
+  <p id="encLabel">Encoding MP4…</p>
+  <div class="enc-bar"><div class="enc-fill" id="encFill"></div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════
+const GLYPH_PATH      = 'glyphs/';
+const BOLD_GLYPH_PATH = 'glyphs_bold/';
+const VARIANTS        = 3;
+const GLYPH_SCALE     = 0.1;
+const LETTER_SPACING  = -27;
+const SPACE_WIDTH     = 10;
+const LINE_HEIGHT     = 40;
+const FLICKER_MS      = 180;
+const EXPORT_FPS      = 30;
+const HANDLE          = 14;
+
+// ═══════════════════════════════════════════════
+//  ELEMENTS
+// ═══════════════════════════════════════════════
+const vInput         = document.getElementById('vInput');
+const vid            = document.getElementById('vid');
+const pc             = document.getElementById('pc');
+const pctx           = pc.getContext('2d');
+const statusEl       = document.getElementById('status');
+const stateBadge     = document.getElementById('stateBadge');
+const lta            = document.getElementById('lta');
+const editArea       = document.getElementById('editArea');
+const editHint       = document.getElementById('editHint');
+const performArea    = document.getElementById('performArea');
+const lyricList      = document.getElementById('lyricList');
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsPanel  = document.getElementById('settingsPanel');
+const settingsClose  = document.getElementById('settingsClose');
+const shadowEnabled  = document.getElementById('shadowEnabled');
+const shadowOpacity  = document.getElementById('shadowOpacity');
+const shadowValue    = document.getElementById('shadowValue');
+const boldEnabled    = document.getElementById('boldEnabled');
+const textAlign      = document.getElementById('textAlign');
+const encOverlay     = document.getElementById('encOverlay');
+const encLabel       = document.getElementById('encLabel');
+const encFill        = document.getElementById('encFill');
+const playBtn        = document.getElementById('playBtn');
+const pauseBtn       = document.getElementById('pauseBtn');
+const resetBtn       = document.getElementById('resetBtn');
+const exportBtn      = document.getElementById('exportBtn');
+
+// ═══════════════════════════════════════════════
+//  SETTINGS PANEL
+// ═══════════════════════════════════════════════
+settingsToggle.addEventListener('click', () => {
+  const open = settingsPanel.classList.toggle('open');
+  settingsToggle.classList.toggle('active', open);
+});
+settingsClose.addEventListener('click', () => {
+  settingsPanel.classList.remove('open');
+  settingsToggle.classList.remove('active');
+});
+shadowOpacity.addEventListener('input', () => {
+  shadowValue.textContent = shadowOpacity.value + '%';
+});
+boldEnabled.addEventListener('change', () => {
+  Object.keys(glyphs).forEach(k => delete glyphs[k]);
+  rebuildFlicker();
+});
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const glyphs  = {};
+let lines     = [];
+let curLine   = 0;
+let flicker   = [], lastFlick = 0;
+let bx, by, bw, bh;
+let userScale = 1.0;
+let dragMode  = null, dMX, dMY, dBX, dBY, dStartScale;
+
+// recState: 'idle' | 'recording' | 'paused'
+let recState = 'idle';
+
+// Shared audio context — created once, never destroyed
+// (browser only allows one MediaElementSource per element)
+let sharedAudioCtx    = null;
+let sharedAudioSource = null;
+
+// Per-session
+let encoder = null, muxer = null, audioEncoder = null, audioProcessor = null;
+let mrec = null, mchunks = [];
+
+// ═══════════════════════════════════════════════
+//  UI STATE UPDATE
+// ═══════════════════════════════════════════════
+function updateUI() {
+  const hasVideo  = !!(vid.src && vid.videoWidth);
+  const idle      = recState === 'idle';
+  const recording = recState === 'recording';
+  const paused    = recState === 'paused';
+
+  // Buttons
+  playBtn  .disabled = !hasVideo || recording;
+  pauseBtn .disabled = !recording;
+  resetBtn .disabled = !hasVideo;
+  exportBtn.disabled = idle;
+  playBtn.textContent = paused ? '▶ Resume' : '▶ Play';
+
+  // Badge
+  stateBadge.textContent = recording ? '⏺ Recording' : paused ? '⏸ Paused' : 'Idle';
+  stateBadge.className = 'lyrics-state-badge' + (recording ? ' recording' : paused ? ' paused' : '');
+
+  // Show edit textarea when idle OR paused (so user can edit between pauses)
+  // Show perform list only while actively recording
+  const showPerform = recording;
+  editArea   .style.display = showPerform ? 'none' : 'flex';
+  performArea.style.display = showPerform ? 'flex' : 'none';
+
+  // Textarea: editable when idle, also editable when paused
+  lta.disabled = false; // always editable — lines re-read on resume/play
+
+  editHint.textContent = paused
+    ? 'Paused — edit upcoming lyrics, then Resume'
+    : idle
+    ? 'One line per bar — press Play to start recording'
+    : '';
+}
+
+// ═══════════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════════
+function syncCanvas() {
+  const r = pc.getBoundingClientRect();
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (pc.width !== w || pc.height !== h) { pc.width = w; pc.height = h; }
+}
+window.addEventListener('resize', syncCanvas);
+
+// ═══════════════════════════════════════════════
+//  VIDEO LOAD
+// ═══════════════════════════════════════════════
+vInput.addEventListener('change', () => {
+  const f = vInput.files[0]; if (!f) return;
+  discardRecording();
+  vid.src = URL.createObjectURL(f);
+  vid.load();
+  statusEl.textContent = 'Loading…';
+});
+vid.addEventListener('loadedmetadata', () => {
+  syncCanvas();
+  bx = pc.width * 0.04; by = pc.height * 0.65;
+  bw = pc.width * 0.92; bh = pc.height * 0.22;
+  userScale = 1.0;
+  statusEl.textContent = 'Ready — press Play to begin.';
+  updateUI();
+});
+
+// ═══════════════════════════════════════════════
+//  GLYPHS
+// ═══════════════════════════════════════════════
+function gKey(c) { return (c >= 'A' && c <= 'Z') ? 'cap' + c : c; }
+function loadG(k) {
+  if (glyphs[k]) return;
+  glyphs[k] = [];
+  const path   = boldEnabled?.checked ? BOLD_GLYPH_PATH : GLYPH_PATH;
+  const prefix = boldEnabled?.checked ? 'bold_' : '';
+  for (let i = 1; i <= VARIANTS; i++) {
+    const img = new Image();
+    img.src = `${path}${prefix}${k}_${i}.png`;
+    glyphs[k].push(img);
+  }
+}
+function getG(c, vi) {
+  const k = gKey(c); if (!glyphs[k]) loadG(k);
+  const g = glyphs[k]?.[vi];
+  return (g && g.complete && g.naturalWidth > 0) ? g : null;
+}
+
+// ═══════════════════════════════════════════════
+//  FLICKER
+// ═══════════════════════════════════════════════
+function rebuildFlicker() {
+  const t = lines[curLine] ?? '';
+  flicker = [...t].map(c => c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
+}
+
+// ═══════════════════════════════════════════════
+//  LAYOUT
+// ═══════════════════════════════════════════════
+function layoutLines(text, gs, ls, sw, maxW) {
+  const rows = [];
+  let rowWords = [], rowW = 0;
+  for (const word of text.split(' ')) {
+    let wordW = 0;
+    for (const ch of word) { const g = getG(ch, 0); if (g) wordW += g.width * gs + ls; }
+    const wps = wordW + sw * 2;
+    if (rowWords.length > 0 && rowW + wordW > maxW) {
+      rows.push({ words: rowWords, width: rowW - sw * 2 });
+      rowWords = [word]; rowW = wps;
+    } else { rowWords.push(word); rowW += wps; }
+  }
+  if (rowWords.length) rows.push({ words: rowWords, width: rowW - sw * 2 });
+  return rows;
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW GLYPHS
+// ═══════════════════════════════════════════════
+function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
+  const gs = GLYPH_SCALE    * sc * userScale;
+  const ls = LETTER_SPACING * sc * userScale;
+  const sw = SPACE_WIDTH     * sc * userScale;
+  const lh = LINE_HEIGHT     * sc * userScale;
+  const rows = layoutLines(text, gs, ls, sw, maxW);
+
+  if (shadowEnabled?.checked && text) {
+    const alpha = shadowOpacity ? Number(shadowOpacity.value) / 100 : 0.5;
+    const totalH = rows.length * lh;
+    const padY   = 15 * sc * userScale;
+    const grad   = ctx2.createLinearGradient(0, sy - padY, 0, sy + totalH + padY);
+    grad.addColorStop(0,    `rgba(0,0,0,0)`);
+    grad.addColorStop(0.25, `rgba(0,0,0,${alpha})`);
+    grad.addColorStop(0.75, `rgba(0,0,0,${alpha})`);
+    grad.addColorStop(1,    `rgba(0,0,0,0)`);
+    ctx2.save();
+    ctx2.fillStyle = grad;
+    ctx2.fillRect(0, sy - padY, ctx2.canvas.width, totalH + padY * 2);
+    ctx2.restore();
+  }
+
+  let ci = 0, y = sy;
+  for (const row of rows) {
+    const align = textAlign?.value ?? 'left';
+    let x = align === 'center' ? sx + (maxW - row.width) / 2
+          : align === 'right'  ? sx + maxW - row.width : sx;
+    for (const word of row.words) {
+      for (const ch of word) {
+        const g = getG(ch, flicker[ci]);
+        if (g) { ctx2.drawImage(g, x, y, g.width * gs, g.height * gs); x += g.width * gs + ls; }
+        ci++;
+      }
+      ci++; x += sw * 2;
+    }
+    y += lh;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  BOUNDING BOX
+// ═══════════════════════════════════════════════
+function drawBox() {
+  if (bx === undefined) return;
+  const gs = GLYPH_SCALE * userScale, ls = LETTER_SPACING * userScale;
+  const sw = SPACE_WIDTH * userScale, lh = LINE_HEIGHT * userScale;
+  const text = lines[curLine] ?? '';
+  bh = text ? layoutLines(text, gs, ls, sw, bw).length * lh + lh * 0.5 : lh * 1.5;
+
+  pctx.save();
+  pctx.setLineDash([5, 4]);
+  pctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  pctx.lineWidth = 1.5;
+  pctx.strokeRect(bx, by, bw, bh);
+  pctx.setLineDash([]);
+  pctx.fillStyle = '#ff5722';
+  pctx.fillRect(bx + bw - HANDLE, by + bh - HANDLE, HANDLE, HANDLE);
+  pctx.fillStyle = '#fff';
+  pctx.font = `bold ${HANDLE - 2}px system-ui`;
+  pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
+  pctx.fillText('⤡', bx + bw - HANDLE / 2, by + bh - HANDLE / 2);
+  pctx.textAlign = 'start'; pctx.textBaseline = 'alphabetic';
+  pctx.font = '10px system-ui';
+  pctx.fillStyle = 'rgba(255,255,255,0.35)';
+  pctx.fillText(`drag · resize ↘ (${userScale.toFixed(2)}×)`, bx + 2, by - 3);
+  pctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════
+function renderLoop(ts) {
+  requestAnimationFrame(renderLoop);
+  if (ts - lastFlick > FLICKER_MS) { rebuildFlicker(); lastFlick = ts; }
+  pctx.clearRect(0, 0, pc.width, pc.height);
+  const t = lines[curLine];
+  if (t) drawGlyphs(pctx, t, bx, by, bw, 1);
+  drawBox();
+}
+requestAnimationFrame(renderLoop);
+
+// ═══════════════════════════════════════════════
+//  DRAG & RESIZE
+// ═══════════════════════════════════════════════
+function cPt(cx, cy) { const r = pc.getBoundingClientRect(); return { x: cx-r.left, y: cy-r.top }; }
+function inHandle(x,y) { return x>=bx+bw-HANDLE&&x<=bx+bw&&y>=by+bh-HANDLE&&y<=by+bh; }
+function inBox(x,y) { return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh; }
+
+pc.addEventListener('mousedown', e => {
+  e.preventDefault();
+  const {x,y} = cPt(e.clientX, e.clientY);
+  if (inHandle(x,y))     { dragMode='resize'; dMX=e.clientX; dMY=e.clientY; dStartScale=userScale; }
+  else if (inBox(x,y))   { dragMode='move';   dMX=e.clientX; dMY=e.clientY; dBX=bx; dBY=by; }
+});
+pc.addEventListener('touchstart', e => {
+  const t=e.touches[0];
+  pc.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY}));
+},{passive:false});
+window.addEventListener('mousemove', e => {
+  if (!dragMode) return;
+  const dx=e.clientX-dMX, dy=e.clientY-dMY;
+  if (dragMode==='move') { bx=dBX+dx; by=dBY+dy; }
+  else { userScale=Math.max(0.3,Math.min(5,dStartScale+(dx+dy)/200)); }
+});
+window.addEventListener('touchmove', e => {
+  const t=e.touches[0];
+  window.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));
+},{passive:false});
+window.addEventListener('mouseup',  ()=>{ dragMode=null; });
+window.addEventListener('touchend', ()=>{ dragMode=null; });
+pc.addEventListener('mousemove', e => {
+  if (dragMode) return;
+  const {x,y}=cPt(e.clientX,e.clientY);
+  pc.style.cursor=inHandle(x,y)?'nwse-resize':inBox(x,y)?'grab':'default';
+});
+
+// ═══════════════════════════════════════════════
+//  LYRICS HELPERS
+// ═══════════════════════════════════════════════
+function readLines() {
+  lines = lta.value.split('\n').map(l => l.trimEnd());
+}
+
+function renderPerformList() {
+  lyricList.innerHTML = '';
+  lines.forEach((l, i) => {
+    const d = document.createElement('div');
+    d.textContent = l || '(empty line)';
+    d.className = 'lyric-line'
+      + (i === curLine     ? ' active' : '')
+      + (i  < curLine     ? ' done'   : '')
+      + (i === curLine + 1? ' next'   : '');
+    lyricList.appendChild(d);
+  });
+  const active = lyricList.querySelector('.active');
+  if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function advanceLine() {
+  if (curLine >= lines.length - 1) return;
+  curLine++;
+  rebuildFlicker();
+  renderPerformList();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'ShiftRight') { e.preventDefault(); advanceLine(); }
+});
+
+// ═══════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════
+playBtn.addEventListener('click', () => {
+  if (!vid.src) return;
+
+  if (recState === 'paused') {
+    // On resume: re-read lines from textarea so edits during pause take effect
+    // Only update lines from curLine onward — don't reset curLine
+    const freshLines = lta.value.split('\n').map(l => l.trimEnd());
+    // Splice in updated content for remaining lines
+    lines = freshLines;
+    rebuildFlicker();
+
+    recState = 'recording';
+    updateUI();
+    renderPerformList();
+
+    // Resume AudioContext BEFORE playing video to avoid desync
+    const resumeAudio = sharedAudioCtx
+      ? sharedAudioCtx.resume()
+      : Promise.resolve();
+
+    resumeAudio.then(() => {
+      vid.play();
+      statusEl.textContent = 'Recording resumed…';
+    });
+    return;
+  }
+
+  if (recState === 'idle') {
+    readLines();
+    curLine = 0;
+    rebuildFlicker();
+    startExportCapture();
+    // Don't call vid.play() here — startExportCapture does it after setup
+  }
+});
+
+pauseBtn.addEventListener('click', () => {
+  if (recState !== 'recording') return;
+  recState = 'paused';
+
+  // Pause video first, THEN suspend audio context
+  // This ensures they stop together with minimal drift
+  vid.pause();
+  if (sharedAudioCtx) {
+    sharedAudioCtx.suspend(); // returns promise but we don't need to await
+  }
+
+  updateUI();
+  // Show textarea with current lyrics for editing
+  statusEl.textContent = 'Paused — edit upcoming lyrics then Resume';
+});
+
+resetBtn.addEventListener('click', async () => {
+  await discardRecording();
+  vid.pause();
+  vid.currentTime = 0;
+  curLine = 0;
+  recState = 'idle';
+  updateUI();
+  rebuildFlicker();
+  statusEl.textContent = 'Reset — press Play to start fresh.';
+});
+
+exportBtn.addEventListener('click', () => {
+  if (recState === 'idle') return;
+  stopExportCapture();
+});
+
+// ═══════════════════════════════════════════════
+//  AUDIO CONTEXT (created once, reused forever)
+// ═══════════════════════════════════════════════
+function ensureAudioCtx() {
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new AudioContext();
+  }
+  if (!sharedAudioSource) {
+    sharedAudioSource = sharedAudioCtx.createMediaElementSource(vid);
+    sharedAudioSource.connect(sharedAudioCtx.destination);
+  }
+  return sharedAudioCtx;
+}
+
+// ═══════════════════════════════════════════════
+//  COMPOSITE CANVAS
+// ═══════════════════════════════════════════════
+const compCanvas = document.createElement('canvas');
+const compCtx    = compCanvas.getContext('2d');
+
+// ═══════════════════════════════════════════════
+//  START RECORDING
+// ═══════════════════════════════════════════════
+function startExportCapture() {
+  if (recState !== 'idle') return;
+  if (!vid.videoWidth) { statusEl.textContent = 'No video loaded.'; return; }
+
+  compCanvas.width  = vid.videoWidth;
+  compCanvas.height = vid.videoHeight;
+  const sx = vid.videoWidth  / pc.width;
+  const sy = vid.videoHeight / pc.height;
+  const W  = vid.videoWidth, H = vid.videoHeight;
+
+  if (typeof VideoEncoder === 'undefined' || typeof Mp4Muxer === 'undefined') {
+    recState = 'recording';
+    updateUI();
+    renderPerformList();
+    startWebmFallback(sx, sy, W, H);
+    vid.play();
+    return;
+  }
+
+  const actx = ensureAudioCtx();
+  // AudioContext may be in 'suspended' state (browser autoplay policy)
+  // Resume it, THEN set up encoders, THEN play video
+  actx.resume().then(() => {
+    const sampleRate  = actx.sampleRate;
+    const numChannels = 2;
+
+    muxer = new Mp4Muxer.Muxer({
+      target:    new Mp4Muxer.ArrayBufferTarget(),
+      video:     { codec: 'avc', width: W, height: H, frameRate: EXPORT_FPS },
+      audio:     { codec: 'aac', sampleRate, numberOfChannels: numChannels },
+      fastStart: 'in-memory',
+    });
+
+    encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error:  e => console.error('VideoEncoder:', e),
+    });
+    encoder.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: EXPORT_FPS });
+
+    if (typeof AudioEncoder !== 'undefined') {
+      audioEncoder = new AudioEncoder({
+        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+        error:  e => console.error('AudioEncoder:', e),
+      });
+      audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: numChannels, bitrate: 128_000 });
+
+      audioProcessor = actx.createScriptProcessor(4096, numChannels, numChannels);
+      let audioFrameCount = 0;
+
+      audioProcessor.onaudioprocess = ev => {
+        if (recState !== 'recording') return;
+        const left  = ev.inputBuffer.getChannelData(0);
+        const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
+        // Timestamp based purely on frame count — always contiguous, never drifts
+        const ts = Math.round((audioFrameCount * 4096 / sampleRate) * 1e6);
+        const frame = new AudioData({
+          format: 'f32-planar', sampleRate,
+          numberOfFrames: left.length, numberOfChannels: numChannels,
+          timestamp: ts,
+          data: new Float32Array([...left, ...right]),
+        });
+        audioEncoder.encode(frame);
+        frame.close();
+        audioFrameCount++;
+      };
+
+      sharedAudioSource.connect(audioProcessor);
+      audioProcessor.connect(actx.destination);
+    }
+
+    recState = 'recording';
+    updateUI();
+    renderPerformList();
+    statusEl.textContent = 'Recording… Right Shift to advance. Pause or Export when done.';
+
+    // Start video playback NOW — after audio graph is wired up
+    vid.play();
+
+    // Video frame capture loop
+    let frameCount = 0, recStartTime = null;
+    const frameDur = 1e6 / EXPORT_FPS;
+
+    function captureFrame(ts) {
+      if (recState === 'idle') return;
+      requestAnimationFrame(captureFrame);
+
+      if (recState === 'paused') {
+        recStartTime = null; // clock resets on next resume
+        return;
+      }
+
+      if (recStartTime === null) recStartTime = ts;
+      const elapsed  = ts - recStartTime;
+      const expected = Math.floor(elapsed / (1000 / EXPORT_FPS));
+      if (expected <= frameCount - 1) return;
+
+      compCtx.drawImage(vid, 0, 0, W, H);
+      const t = lines[curLine];
+      if (t) drawGlyphs(compCtx, t, bx * sx, by * sy, bw * sx, sx);
+
+      const frame = new VideoFrame(compCanvas, { timestamp: frameCount * frameDur, duration: frameDur });
+      encoder.encode(frame, { keyFrame: frameCount % 30 === 0 });
+      frame.close();
+      frameCount++;
+
+      if (vid.ended) stopExportCapture();
+    }
+    requestAnimationFrame(captureFrame);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  STOP & SAVE
+// ═══════════════════════════════════════════════
+async function stopExportCapture() {
+  if (recState === 'idle') return;
+
+  // Ensure audio context is running before flushing
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    await sharedAudioCtx.resume();
+  }
+
+  recState = 'idle';
+  updateUI();
+
+  if (encoder) {
+    encOverlay.classList.add('show');
+    encLabel.textContent = 'Encoding…';
+    encFill.style.width = '15%';
+
+    if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
+    if (audioEncoder)   { try { await audioEncoder.flush(); } catch(e) {} }
+    encFill.style.width = '50%';
+
+    try { await encoder.flush(); } catch(e) {}
+    encFill.style.width = '80%';
+
+    muxer.finalize();
+
+    const { buffer } = muxer.target;
+    const blob = new Blob([buffer], { type: 'video/mp4' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'lyrics_overlay.mp4'; a.click();
+    URL.revokeObjectURL(url);
+
+    encFill.style.width = '100%';
+    encLabel.textContent = 'Done! ✓';
+    statusEl.textContent = 'MP4 saved! Press Reset to start over.';
+    setTimeout(() => encOverlay.classList.remove('show'), 1500);
+
+    encoder = null; muxer = null; audioEncoder = null;
+  } else {
+    stopWebmFallback();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DISCARD
+// ═══════════════════════════════════════════════
+async function discardRecording() {
+  recState = 'idle';
+
+  if (sharedAudioCtx?.state === 'suspended') {
+    try { await sharedAudioCtx.resume(); } catch(e) {}
+  }
+  if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e) {} audioProcessor = null; }
+  if (encoder)        { try { encoder.close();      } catch(e) {} encoder      = null; }
+  if (audioEncoder)   { try { audioEncoder.close(); } catch(e) {} audioEncoder  = null; }
+  muxer = null;
+  if (mrec) { try { mrec.stop(); } catch(e) {} mrec = null; mchunks = []; }
+}
+
+// ═══════════════════════════════════════════════
+//  WEBM FALLBACK
+// ═══════════════════════════════════════════════
+function startWebmFallback(sx, sy, W, H) {
+  const vidStream   = vid.captureStream?.() ?? vid.mozCaptureStream?.();
+  const audioTracks = vidStream?.getAudioTracks() ?? [];
+  const stream      = compCanvas.captureStream(EXPORT_FPS);
+  audioTracks.forEach(t => stream.addTrack(t));
+
+  const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm']
+    .find(m => MediaRecorder.isTypeSupported(m)) ?? '';
+  mrec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+  mchunks = [];
+  mrec.ondataavailable = e => { if (e.data.size > 0) mchunks.push(e.data); };
+  mrec.onstop = () => {
+    const b = new Blob(mchunks, { type: 'video/webm' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a'); a.href=u; a.download='lyrics_overlay.webm'; a.click();
+    URL.revokeObjectURL(u);
+    statusEl.textContent = 'Saved as WebM. Convert at handbrake.fr for MP4.';
+    mrec = null; mchunks = [];
+  };
+  mrec.start(100);
+
+  let lastT = 0;
+  function compLoop(ts) {
+    if (recState === 'idle') return;
+    requestAnimationFrame(compLoop);
+    if (recState === 'paused') return;
+    if (ts - lastT >= 1000 / EXPORT_FPS) {
+      compCtx.drawImage(vid, 0, 0, W, H);
+      const t = lines[curLine];
+      if (t) drawGlyphs(compCtx, t, bx*sx, by*sy, bw*sx, sx);
+      lastT = ts;
+    }
+  }
+  requestAnimationFrame(compLoop);
+}
+function stopWebmFallback() {
+  if (!mrec) return;
+  mrec.requestData();
+  setTimeout(() => { try { mrec.stop(); } catch(e){} }, 150);
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+readLines();
+updateUI();
+</script>
+</body>
+</html>
