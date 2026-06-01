@@ -7,81 +7,57 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;font-family:system-ui,sans-serif;font-size:13px}
 
-/* ══ LEFT — video pane 50% ══ */
-.video-pane{
-  width:50%;flex-shrink:0;display:flex;flex-direction:column;
-  align-items:center;gap:8px;padding:12px;border-right:1px solid #2a2a2a;
-}
+/* ══ LEFT ══ */
+.video-pane{width:50%;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;border-right:1px solid #2a2a2a}
 .load-row{display:flex;align-items:center;gap:8px;width:100%}
 .load-row label{color:#555;white-space:nowrap;font-size:11px}
 .load-row input[type=file]{flex:1;min-width:0;color:#888;font-size:11px;background:none;border:none}
-
-.video-wrap{
-  position:relative;width:100%;flex:1;min-height:0;
-  background:#000;border-radius:10px;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-}
+.video-wrap{position:relative;width:100%;flex:1;min-height:0;background:#000;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .video-inner{position:relative;height:100%;aspect-ratio:9/16;max-width:100%}
 .video-inner video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 #pc{position:absolute;inset:0;width:100%;height:100%}
-
-/* Scrubber */
 .scrubber-row{display:flex;align-items:center;gap:8px;width:100%}
 .scrubber-row span{font-size:10px;color:#444;white-space:nowrap;min-width:32px}
-#scrubber{
-  flex:1;height:4px;appearance:none;background:#222;border-radius:2px;cursor:pointer;
-  accent-color:#ff5722;
-}
+#scrubber{flex:1;height:4px;appearance:none;background:#222;border-radius:2px;cursor:pointer;accent-color:#ff5722}
 #scrubber::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:#ff5722}
 #scrubber:disabled{opacity:.3;cursor:default}
-
 .transport{display:flex;gap:5px;width:100%}
-.transport button{
-  flex:1;padding:9px 4px;border:none;border-radius:7px;
-  cursor:pointer;font-weight:700;font-size:11px;
-  transition:filter .12s,opacity .12s;white-space:nowrap;
-}
+.transport button{flex:1;padding:9px 4px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:11px;transition:filter .12s,opacity .12s;white-space:nowrap}
 .transport button:disabled{opacity:.28;cursor:default;pointer-events:none}
 .transport button:not(:disabled):hover{filter:brightness(1.2)}
 #playBtn  {background:#ff5722;color:#fff}
 #pauseBtn {background:#2a2a2a;color:#ccc;border:1px solid #333}
 #resetBtn {background:#1a1a1a;color:#666;border:1px solid #222}
 #exportBtn{background:#1a3d28;color:#5cba7d;border:1px solid #2a5c3a}
-
 #status{font-size:11px;color:#444;text-align:center;width:100%;min-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ══ RIGHT — lyrics pane 50% ══ */
-.lyrics-pane{
-  width:50%;flex-shrink:0;display:flex;flex-direction:column;
-  background:#111;position:relative;overflow:hidden;
-}
-.lyrics-header{
-  display:flex;align-items:center;gap:8px;
-  padding:9px 12px;border-bottom:1px solid #1a1a1a;flex-shrink:0;
-}
+/* ══ RIGHT ══ */
+.lyrics-pane{width:50%;flex-shrink:0;display:flex;flex-direction:column;background:#111;position:relative;overflow:hidden}
+.lyrics-header{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
 .lyrics-title{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#333;flex:1}
-.state-badge{
-  font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
-  background:#1a1a1a;color:#444;transition:background .2s,color .2s;
-}
+.state-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#1a1a1a;color:#444;transition:background .2s,color .2s}
 .state-badge.rec{background:#ff5722;color:#fff}
 .state-badge.paused{background:#2a2a2a;color:#ff9060}
-#settingsToggle{
-  background:none;border:none;cursor:pointer;color:#383838;font-size:16px;
-  padding:3px 5px;border-radius:5px;line-height:1;transition:color .1s,background .1s;
-}
-#settingsToggle:hover{color:#bbb;background:#1e1e1e}
-#settingsToggle.on{color:#ff5722}
+.hdr-btns{display:flex;gap:4px}
+.hdr-btn{background:none;border:none;cursor:pointer;color:#383838;font-size:15px;padding:3px 6px;border-radius:5px;line-height:1;transition:color .1s,background .1s}
+.hdr-btn:hover{color:#bbb;background:#1e1e1e}
+.hdr-btn.on{color:#ff5722}
 
 /* Edit area */
 #editArea{flex:1;display:flex;flex-direction:column;gap:6px;padding:10px 12px;min-height:0}
 #editHint{font-size:11px;color:#2e2e2e}
-#lta{
-  flex:1;resize:none;padding:10px;font-size:14px;line-height:1.7;
-  background:#0d0d0d;color:#ccc;border:1px solid #1a1a1a;border-radius:8px;
-  font-family:system-ui,sans-serif;min-height:0;
-}
+#lta{flex:1;resize:none;padding:10px;font-size:14px;line-height:1.7;background:#0d0d0d;color:#ccc;border:1px solid #1a1a1a;border-radius:8px;font-family:system-ui,sans-serif;min-height:0}
 #lta:focus{outline:none;border-color:#ff5722}
+
+/* Sticker toolbar inside edit area */
+.sticker-toolbar{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.sticker-toolbar label{font-size:11px;color:#444}
+.sticker-btn{
+  padding:5px 10px;background:#1e1e1e;border:1px solid #2a2a2a;
+  border-radius:5px;cursor:pointer;font-size:12px;color:#888;
+  transition:background .1s,color .1s;
+}
+.sticker-btn:hover{background:#2a2a2a;color:#ccc}
 
 /* Perform area */
 #performArea{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -95,12 +71,7 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 .lyric-line.next-up{color:#444}
 
 /* Settings panel */
-#settingsPanel{
-  position:absolute;top:0;right:0;bottom:0;width:230px;
-  background:#111;border-left:1px solid #1e1e1e;
-  display:flex;flex-direction:column;
-  transform:translateX(100%);transition:transform .18s ease;z-index:30;overflow-y:auto;
-}
+#settingsPanel{position:absolute;top:0;right:0;bottom:0;width:230px;background:#111;border-left:1px solid #1e1e1e;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .18s ease;z-index:30;overflow-y:auto}
 #settingsPanel.open{transform:translateX(0)}
 .sp-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
 .sp-hd span{font-weight:700;font-size:11px;color:#888;letter-spacing:.05em;text-transform:uppercase}
@@ -114,15 +85,10 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 .sp-row input[type=range]{flex:1;accent-color:#ff5722}
 .sp-row input[type=checkbox]{accent-color:#ff5722;width:13px;height:13px;cursor:pointer}
 .sp-val{color:#ff5722;font-weight:700;font-size:11px;min-width:28px;text-align:right}
-
-/* Export quality note */
 .quality-note{font-size:10px;color:#333;line-height:1.5;padding:2px 0}
 
 /* Encoding overlay */
-#encOverlay{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);
-  z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px;
-}
+#encOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
 #encOverlay.show{display:flex}
 #encOverlay p{font-size:13px;color:#aaa}
 .enc-bar{width:220px;height:5px;background:#1e1e1e;border-radius:3px;overflow:hidden}
@@ -131,7 +97,6 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 </head>
 <body>
 
-<!-- LEFT: video pane -->
 <div class="video-pane">
   <div class="load-row">
     <label>Video</label>
@@ -157,17 +122,22 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
   <div id="status">Load a video to begin</div>
 </div>
 
-<!-- RIGHT: lyrics pane -->
 <div class="lyrics-pane">
   <div class="lyrics-header">
     <span class="lyrics-title">Lyrics</span>
     <span class="state-badge" id="stateBadge">Idle</span>
-    <button id="settingsToggle" title="Text settings">⚙</button>
+    <div class="hdr-btns">
+      <button class="hdr-btn" id="settingsToggle" title="Text settings">⚙</button>
+    </div>
   </div>
 
   <div id="editArea">
     <div id="editHint">One line per bar — press Play to record</div>
     <textarea id="lta" placeholder="Line 1&#10;Line 2&#10;Line 3"></textarea>
+    <div class="sticker-toolbar">
+      <label>Add sticker:</label>
+      <button class="sticker-btn" data-sticker="star">⭐ Star</button>
+    </div>
   </div>
 
   <div id="performArea" style="display:none">
@@ -178,13 +148,11 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
     <div id="lyricList"></div>
   </div>
 
-  <!-- Settings slide-in -->
   <div id="settingsPanel">
     <div class="sp-hd">
       <span>Text Settings</span>
       <button id="spClose">×</button>
     </div>
-
     <div class="sp-sec">
       <h3>Font</h3>
       <div class="sp-row">
@@ -204,7 +172,6 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
         </select>
       </div>
     </div>
-
     <div class="sp-sec">
       <h3>Shadow</h3>
       <div class="sp-row">
@@ -217,7 +184,6 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
         <span class="sp-val" id="shadowValue">25%</span>
       </div>
     </div>
-
     <div class="sp-sec">
       <h3>Export Quality</h3>
       <div class="sp-row">
@@ -235,12 +201,11 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
           <option value="60" selected>60 fps</option>
         </select>
       </div>
-      <p class="quality-note">Higher values = larger file, longer encode. TikTok accepts up to 1080p60.</p>
+      <p class="quality-note">Higher = larger file, longer encode. TikTok: up to 1080p60.</p>
     </div>
   </div>
 </div>
 
-<!-- Encoding overlay -->
 <div id="encOverlay">
   <p id="encLabel">Encoding MP4…</p>
   <div class="enc-bar"><div class="enc-fill" id="encFill"></div></div>
@@ -250,60 +215,73 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 <script>
 'use strict';
 
-// ═══════════════════════════════════
-//  CONFIG
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  FONT CONFIG
+//  Each font has its own glyph scale because image
+//  sizes differ: normal/bold = 512px, messy = 256px.
+//  We normalise so all fonts render at the same size.
+// ═══════════════════════════════════════════════
 const GLYPH_PATHS = {
-  normal: { dir: 'glyphs/',       prefix: ''       },
-  bold:   { dir: 'glyphs_bold/',  prefix: 'bold_'  },
-  messy:  { dir: 'glyphs_messy/', prefix: 'messy_' },
+  normal: { dir: 'glyphs/',       prefix: '',       scale: 0.10 },
+  bold:   { dir: 'glyphs_bold/',  prefix: 'bold_',  scale: 0.10 },
+  messy:  { dir: 'glyphs_messy/', prefix: 'messy_', scale: 0.20 }, // 256px → same visual size
 };
+
 const VARIANTS       = 3;
-const GLYPH_SCALE    = 0.1;
-const LETTER_SPACING = -27;
+const LETTER_SPACING = -27;  // px, applied after font scale
 const SPACE_WIDTH    = 10;
 const LINE_HEIGHT    = 40;
 const FLICKER_MS     = 180;
-const HANDLE         = 14;
+const HANDLE         = 14;   // resize handle size in canvas px
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  STICKER CONFIG
+// ═══════════════════════════════════════════════
+const STICKER_DIR      = 'glyphs_stickers/';
+const STICKER_VARIANTS = 3;
+// stickersRegistry: known sticker types
+const STICKER_REGISTRY = {
+  star: { label: '⭐ Star', prefix: 'star' },
+};
+
+// ═══════════════════════════════════════════════
 //  ELEMENTS
-// ═══════════════════════════════════
-const vInput        = document.getElementById('vInput');
-const vid           = document.getElementById('vid');
-const pc            = document.getElementById('pc');
-const pctx          = pc.getContext('2d');
-const statusEl      = document.getElementById('status');
-const stateBadge    = document.getElementById('stateBadge');
-const scrubber      = document.getElementById('scrubber');
-const timeNow       = document.getElementById('timeNow');
-const timeDur       = document.getElementById('timeDur');
-const lta           = document.getElementById('lta');
-const editArea      = document.getElementById('editArea');
-const editHint      = document.getElementById('editHint');
-const performArea   = document.getElementById('performArea');
-const lyricList     = document.getElementById('lyricList');
-const settingsToggle= document.getElementById('settingsToggle');
-const settingsPanel = document.getElementById('settingsPanel');
-const spClose       = document.getElementById('spClose');
-const shadowEnabled = document.getElementById('shadowEnabled');
-const shadowOpacity = document.getElementById('shadowOpacity');
-const shadowValue   = document.getElementById('shadowValue');
-const fontStyle     = document.getElementById('fontStyle');
-const textAlign     = document.getElementById('textAlign');
-const qualityPreset = document.getElementById('qualityPreset');
-const fpsSelect     = document.getElementById('fpsSelect');
-const encOverlay    = document.getElementById('encOverlay');
-const encLabel      = document.getElementById('encLabel');
-const encFill       = document.getElementById('encFill');
-const playBtn       = document.getElementById('playBtn');
-const pauseBtn      = document.getElementById('pauseBtn');
-const resetBtn      = document.getElementById('resetBtn');
-const exportBtn     = document.getElementById('exportBtn');
+// ═══════════════════════════════════════════════
+const vInput         = document.getElementById('vInput');
+const vid            = document.getElementById('vid');
+const pc             = document.getElementById('pc');
+const pctx           = pc.getContext('2d');
+const statusEl       = document.getElementById('status');
+const stateBadge     = document.getElementById('stateBadge');
+const scrubber       = document.getElementById('scrubber');
+const timeNow        = document.getElementById('timeNow');
+const timeDur        = document.getElementById('timeDur');
+const lta            = document.getElementById('lta');
+const editArea       = document.getElementById('editArea');
+const editHint       = document.getElementById('editHint');
+const performArea    = document.getElementById('performArea');
+const lyricList      = document.getElementById('lyricList');
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsPanel  = document.getElementById('settingsPanel');
+const spClose        = document.getElementById('spClose');
+const shadowEnabled  = document.getElementById('shadowEnabled');
+const shadowOpacity  = document.getElementById('shadowOpacity');
+const shadowValue    = document.getElementById('shadowValue');
+const fontStyle      = document.getElementById('fontStyle');
+const textAlign      = document.getElementById('textAlign');
+const qualityPreset  = document.getElementById('qualityPreset');
+const fpsSelect      = document.getElementById('fpsSelect');
+const encOverlay     = document.getElementById('encOverlay');
+const encLabel       = document.getElementById('encLabel');
+const encFill        = document.getElementById('encFill');
+const playBtn        = document.getElementById('playBtn');
+const pauseBtn       = document.getElementById('pauseBtn');
+const resetBtn       = document.getElementById('resetBtn');
+const exportBtn      = document.getElementById('exportBtn');
 
-// ═══════════════════════════════════
-//  SETTINGS PANEL
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════
 settingsToggle.addEventListener('click', () => {
   const open = settingsPanel.classList.toggle('open');
   settingsToggle.classList.toggle('on', open);
@@ -320,59 +298,115 @@ fontStyle.addEventListener('change', () => {
   rebuildFlicker();
 });
 
-// ═══════════════════════════════════
-//  STATE
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  STATE — lyrics
+// ═══════════════════════════════════════════════
 const glyphs  = {};
 let lines     = [];
 let curLine   = 0;
 let flicker   = [], lastFlick = 0;
+
+// Text bounding box (preview-canvas px = screen px, 1:1)
 let bx, by, bw, bh;
-let userScale = 1.0;
-let dragMode  = null, dMX, dMY, dBX, dBY, dStartScale;
+let textScale = 1.0;
 
-// 'idle' | 'recording' | 'paused'
-let recState = 'idle';
+// ═══════════════════════════════════════════════
+//  STATE — stickers
+//  Each sticker: { name, imgs[], x, y, scale, flickerIdx, lastFlick }
+//  x/y/scale all in preview-canvas px space
+// ═══════════════════════════════════════════════
+const stickers = [];     // array of active sticker objects
+const stickerImgCache = {}; // name → [img1, img2, img3]
 
-// Audio — created once, never torn down (browser limitation)
+function loadStickerImgs(name) {
+  if (stickerImgCache[name]) return stickerImgCache[name];
+  const imgs = [];
+  for (let i = 1; i <= STICKER_VARIANTS; i++) {
+    const img = new Image();
+    img.src = `${STICKER_DIR}${name}_${i}.png`;
+    imgs.push(img);
+  }
+  stickerImgCache[name] = imgs;
+  return imgs;
+}
+
+function addSticker(name) {
+  const imgs = loadStickerImgs(name);
+  stickers.push({
+    name,
+    imgs,
+    // Default: centre of canvas, reasonable size
+    x: pc.width  * 0.5 - 40,
+    y: pc.height * 0.5 - 40,
+    scale: 1.0,   // multiplier on natural img size
+    flickerIdx: 0,
+    lastFlick: 0,
+  });
+}
+
+document.querySelectorAll('.sticker-btn').forEach(btn => {
+  btn.addEventListener('click', () => addSticker(btn.dataset.sticker));
+});
+
+// Base display size for stickers in preview canvas px
+// We want ~80px display width as default for stickers
+const STICKER_BASE_PX = 80;
+
+// ═══════════════════════════════════════════════
+//  STATE — drag
+//  Can drag text box OR any sticker
+// ═══════════════════════════════════════════════
+let drag = null;
+// drag = { target: 'text'|stickerObj, mode: 'move'|'resize',
+//           startMX, startMY, startX, startY, startScale }
+
+// ═══════════════════════════════════════════════
+//  STATE — recording
+// ═══════════════════════════════════════════════
+let recState = 'idle'; // 'idle'|'recording'|'paused'
 let sharedAudioCtx    = null;
 let sharedAudioSource = null;
-
-// Per-session recording objects
 let videoEncoder  = null;
 let audioEncoder  = null;
 let muxer         = null;
 let audioProcessor= null;
 let mrec = null, mchunks = [];
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  SCRUBBER
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function fmtTime(s) {
   if (!isFinite(s)) return '0:00';
   const m = Math.floor(s / 60), ss = Math.floor(s % 60);
   return `${m}:${String(ss).padStart(2,'0')}`;
 }
-
 let scrubbing = false;
-
 scrubber.addEventListener('mousedown', () => { scrubbing = true; });
 scrubber.addEventListener('touchstart', () => { scrubbing = true; }, { passive: true });
-
 scrubber.addEventListener('input', () => {
   if (!vid.duration) return;
-  const t = (scrubber.value / 1000) * vid.duration;
-  vid.currentTime = t;
-  timeNow.textContent = fmtTime(t);
+  vid.currentTime = (scrubber.value / 1000) * vid.duration;
+  timeNow.textContent = fmtTime(vid.currentTime);
 });
-
-scrubber.addEventListener('mouseup', () => { scrubbing = false; });
+scrubber.addEventListener('mouseup',  () => { scrubbing = false; });
 scrubber.addEventListener('touchend', () => { scrubbing = false; });
-
 vid.addEventListener('timeupdate', () => {
   if (scrubbing || !vid.duration) return;
   scrubber.value = (vid.currentTime / vid.duration) * 1000;
   timeNow.textContent = fmtTime(vid.currentTime);
+});
+
+// ═══════════════════════════════════════════════
+//  VIDEO LOAD
+// ═══════════════════════════════════════════════
+vInput.addEventListener('change', () => {
+  const f = vInput.files[0]; if (!f) return;
+  discardRecording();
+  vid.src = URL.createObjectURL(f);
+  vid.load();
+  scrubber.value = 0; scrubber.disabled = true;
+  timeNow.textContent = '0:00'; timeDur.textContent = '0:00';
+  statusEl.textContent = 'Loading…';
 });
 
 vid.addEventListener('loadedmetadata', () => {
@@ -381,14 +415,24 @@ vid.addEventListener('loadedmetadata', () => {
   syncCanvas();
   bx = pc.width * 0.04; by = pc.height * 0.65;
   bw = pc.width * 0.92; bh = pc.height * 0.22;
-  userScale = 1.0;
+  textScale = 1.0;
   statusEl.textContent = 'Ready — press Play to record.';
   updateUI();
 });
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  CANVAS SYNC
+// ═══════════════════════════════════════════════
+function syncCanvas() {
+  const r = pc.getBoundingClientRect();
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (pc.width !== w || pc.height !== h) { pc.width = w; pc.height = h; }
+}
+window.addEventListener('resize', syncCanvas);
+
+// ═══════════════════════════════════════════════
 //  UI STATE
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function updateUI() {
   const hasVideo  = !!(vid.src && vid.videoWidth);
   const idle      = recState === 'idle';
@@ -404,50 +448,24 @@ function updateUI() {
   stateBadge.textContent = recording ? '⏺ REC' : paused ? '⏸ Paused' : 'Idle';
   stateBadge.className = 'state-badge' + (recording ? ' rec' : paused ? ' paused' : '');
 
-  // Scrubber only usable when not actively recording
   scrubber.disabled = recording || !hasVideo;
-
-  // Show textarea when idle or paused, perform list while recording
   editArea   .style.display = recording ? 'none' : 'flex';
-  performArea.style.display = recording ? 'flex' : 'none';
-
+  performArea.style.display = recording ? 'flex'  : 'none';
   editHint.textContent = paused
     ? 'Paused — edit upcoming lyrics, then Resume'
     : 'One line per bar — press Play to record';
 }
 
-// ═══════════════════════════════════
-//  CANVAS
-// ═══════════════════════════════════
-function syncCanvas() {
-  const r = pc.getBoundingClientRect();
-  const w = Math.round(r.width), h = Math.round(r.height);
-  if (pc.width !== w || pc.height !== h) { pc.width = w; pc.height = h; }
-}
-window.addEventListener('resize', syncCanvas);
-
-vInput.addEventListener('change', () => {
-  const f = vInput.files[0]; if (!f) return;
-  discardRecording();
-  vid.src = URL.createObjectURL(f);
-  vid.load();
-  scrubber.value = 0;
-  scrubber.disabled = true;
-  timeNow.textContent = '0:00';
-  timeDur.textContent = '0:00';
-  statusEl.textContent = 'Loading…';
-});
-
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  GLYPHS
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function gKey(c) { return (c >= 'A' && c <= 'Z') ? 'cap' + c : c; }
 
 function loadG(k) {
   if (glyphs[k]) return;
   glyphs[k] = [];
-  const style  = fontStyle?.value ?? 'normal';
-  const { dir, prefix } = GLYPH_PATHS[style] ?? GLYPH_PATHS.normal;
+  const style = fontStyle?.value ?? 'bold';
+  const { dir, prefix } = GLYPH_PATHS[style] ?? GLYPH_PATHS.bold;
   for (let i = 1; i <= VARIANTS; i++) {
     const img = new Image();
     img.src = `${dir}${prefix}${k}_${i}.png`;
@@ -461,17 +479,23 @@ function getG(c, vi) {
   return (g && g.complete && g.naturalWidth > 0) ? g : null;
 }
 
-// ═══════════════════════════════════
+// ─── Current font's per-glyph scale ────────────────
+function getFontScale() {
+  const style = fontStyle?.value ?? 'bold';
+  return (GLYPH_PATHS[style] ?? GLYPH_PATHS.bold).scale;
+}
+
+// ═══════════════════════════════════════════════
 //  FLICKER
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function rebuildFlicker() {
   const t = lines[curLine] ?? '';
   flicker = [...t].map(c => c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
 }
 
-// ═══════════════════════════════════
-//  LAYOUT
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  LAYOUT  (word-wrap, per-row widths for alignment)
+// ═══════════════════════════════════════════════
 function layoutLines(text, gs, ls, sw, maxW) {
   const rows = [];
   let rowWords = [], rowW = 0;
@@ -488,20 +512,24 @@ function layoutLines(text, gs, ls, sw, maxW) {
   return rows;
 }
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  DRAW GLYPHS
-// ═══════════════════════════════════
+//  sc = export scale (videoW/canvasW). For preview sc=1.
+//  userScale is the resize-handle multiplier.
+// ═══════════════════════════════════════════════
 function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
-  const gs = GLYPH_SCALE    * sc * userScale;
-  const ls = LETTER_SPACING * sc * userScale;
-  const sw = SPACE_WIDTH     * sc * userScale;
-  const lh = LINE_HEIGHT     * sc * userScale;
+  const fontSc = getFontScale();          // per-font normalisation
+  const gs = fontSc * sc * textScale;     // final glyph draw scale
+  const ls = LETTER_SPACING * sc * textScale;
+  const sw = SPACE_WIDTH     * sc * textScale;
+  const lh = LINE_HEIGHT     * sc * textScale;
   const rows = layoutLines(text, gs, ls, sw, maxW);
 
+  // Shadow — full canvas width
   if (shadowEnabled?.checked && text) {
     const alpha  = shadowOpacity ? Number(shadowOpacity.value) / 100 : 0.25;
     const totalH = rows.length * lh;
-    const padY   = 15 * sc * userScale;
+    const padY   = 15 * sc * textScale;
     const grad   = ctx2.createLinearGradient(0, sy - padY, 0, sy + totalH + padY);
     grad.addColorStop(0,    `rgba(0,0,0,0)`);
     grad.addColorStop(0.25, `rgba(0,0,0,${alpha})`);
@@ -530,13 +558,29 @@ function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
   }
 }
 
-// ═══════════════════════════════════
-//  BOUNDING BOX
-// ═══════════════════════════════════
-function drawBox() {
+// ═══════════════════════════════════════════════
+//  DRAW STICKERS
+//  sc = export scale (1 for preview)
+// ═══════════════════════════════════════════════
+function drawStickers(ctx2, sc) {
+  for (const s of stickers) {
+    const img = s.imgs[s.flickerIdx];
+    if (!img || !img.complete || !img.naturalWidth) continue;
+    // Display size: STICKER_BASE_PX * s.scale, scaled for export
+    const displayW = STICKER_BASE_PX * s.scale * sc;
+    const displayH = displayW; // square stickers
+    ctx2.drawImage(img, s.x * sc, s.y * sc, displayW, displayH);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  BOUNDING BOX — text
+// ═══════════════════════════════════════════════
+function drawTextBox() {
   if (bx === undefined) return;
-  const gs = GLYPH_SCALE * userScale, ls = LETTER_SPACING * userScale;
-  const sw = SPACE_WIDTH * userScale,  lh = LINE_HEIGHT    * userScale;
+  const fontSc = getFontScale();
+  const gs = fontSc * textScale, ls = LETTER_SPACING * textScale;
+  const sw = SPACE_WIDTH * textScale, lh = LINE_HEIGHT * textScale;
   const text = lines[curLine] ?? '';
   bh = text ? layoutLines(text, gs, ls, sw, bw).length * lh + lh * 0.5 : lh * 1.5;
 
@@ -546,6 +590,7 @@ function drawBox() {
   pctx.lineWidth = 1.5;
   pctx.strokeRect(bx, by, bw, bh);
   pctx.setLineDash([]);
+  // Handle
   pctx.fillStyle = '#ff5722';
   pctx.fillRect(bx + bw - HANDLE, by + bh - HANDLE, HANDLE, HANDLE);
   pctx.fillStyle = '#fff';
@@ -555,61 +600,156 @@ function drawBox() {
   pctx.textAlign = 'start'; pctx.textBaseline = 'alphabetic';
   pctx.font = '10px system-ui';
   pctx.fillStyle = 'rgba(255,255,255,0.3)';
-  pctx.fillText(`drag · ↘ resize (${userScale.toFixed(2)}×)`, bx + 2, by - 3);
+  pctx.fillText(`txt drag · ↘ resize (${textScale.toFixed(2)}×)`, bx + 2, by - 3);
   pctx.restore();
 }
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  BOUNDING BOX — sticker
+// ═══════════════════════════════════════════════
+function drawStickerBox(s) {
+  const sz = STICKER_BASE_PX * s.scale;
+  pctx.save();
+  pctx.setLineDash([4, 3]);
+  pctx.strokeStyle = 'rgba(100,200,255,0.6)';
+  pctx.lineWidth = 1.5;
+  pctx.strokeRect(s.x, s.y, sz, sz);
+  pctx.setLineDash([]);
+  pctx.fillStyle = '#2196f3';
+  pctx.fillRect(s.x + sz - HANDLE, s.y + sz - HANDLE, HANDLE, HANDLE);
+  pctx.fillStyle = '#fff';
+  pctx.font = `bold ${HANDLE - 2}px system-ui`;
+  pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
+  pctx.fillText('⤡', s.x + sz - HANDLE / 2, s.y + sz - HANDLE / 2);
+  pctx.restore();
+}
+
+// ═══════════════════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function renderLoop(ts) {
   requestAnimationFrame(renderLoop);
+
+  // Text flicker
   if (ts - lastFlick > FLICKER_MS) { rebuildFlicker(); lastFlick = ts; }
+
+  // Sticker flicker — each sticker flickers independently
+  for (const s of stickers) {
+    if (ts - s.lastFlick > FLICKER_MS) {
+      s.flickerIdx = Math.floor(Math.random() * STICKER_VARIANTS);
+      s.lastFlick = ts;
+    }
+  }
+
   pctx.clearRect(0, 0, pc.width, pc.height);
+
+  // Draw text glyphs
   const t = lines[curLine];
   if (t) drawGlyphs(pctx, t, bx, by, bw, 1);
-  drawBox();
+
+  // Draw stickers
+  drawStickers(pctx, 1);
+
+  // Draw UI boxes (preview only)
+  drawTextBox();
+  for (const s of stickers) drawStickerBox(s);
 }
 requestAnimationFrame(renderLoop);
 
-// ═══════════════════════════════════
-//  DRAG & RESIZE
-// ═══════════════════════════════════
-function cPt(cx, cy) { const r = pc.getBoundingClientRect(); return { x: cx-r.left, y: cy-r.top }; }
-function inHandle(x,y){ return x>=bx+bw-HANDLE&&x<=bx+bw&&y>=by+bh-HANDLE&&y<=by+bh; }
-function inBox(x,y)   { return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh; }
+// ═══════════════════════════════════════════════
+//  HIT TESTING
+// ═══════════════════════════════════════════════
+function cPt(cx, cy) {
+  const r = pc.getBoundingClientRect();
+  return { x: cx - r.left, y: cy - r.top };
+}
+function inHandle(rx, ry, x, y, w, h) {
+  return rx >= x+w-HANDLE && rx <= x+w && ry >= y+h-HANDLE && ry <= y+h;
+}
+function inRect(rx, ry, x, y, w, h) {
+  return rx >= x && rx <= x+w && ry >= y && ry <= y+h;
+}
 
+// ═══════════════════════════════════════════════
+//  DRAG & RESIZE
+// ═══════════════════════════════════════════════
 pc.addEventListener('mousedown', e => {
   e.preventDefault();
-  const {x,y} = cPt(e.clientX,e.clientY);
-  if (inHandle(x,y))   { dragMode='resize'; dMX=e.clientX; dMY=e.clientY; dStartScale=userScale; }
-  else if (inBox(x,y)) { dragMode='move';   dMX=e.clientX; dMY=e.clientY; dBX=bx; dBY=by; }
-});
-pc.addEventListener('touchstart', e => {
-  const t=e.touches[0];
-  pc.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY}));
-},{passive:false});
-window.addEventListener('mousemove', e => {
-  if (!dragMode) return;
-  const dx=e.clientX-dMX, dy=e.clientY-dMY;
-  if (dragMode==='move')   { bx=dBX+dx; by=dBY+dy; }
-  else { userScale=Math.max(0.3,Math.min(5,dStartScale+(dx+dy)/200)); }
-});
-window.addEventListener('touchmove', e => {
-  const t=e.touches[0];
-  window.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));
-},{passive:false});
-window.addEventListener('mouseup',  ()=>{ dragMode=null; });
-window.addEventListener('touchend', ()=>{ dragMode=null; });
-pc.addEventListener('mousemove', e => {
-  if (dragMode) return;
-  const {x,y}=cPt(e.clientX,e.clientY);
-  pc.style.cursor=inHandle(x,y)?'nwse-resize':inBox(x,y)?'grab':'default';
+  const { x, y } = cPt(e.clientX, e.clientY);
+
+  // Check stickers first (last added = on top = checked first)
+  for (let i = stickers.length - 1; i >= 0; i--) {
+    const s  = stickers[i];
+    const sz = STICKER_BASE_PX * s.scale;
+    if (inHandle(x, y, s.x, s.y, sz, sz)) {
+      drag = { target: s, mode: 'resize', startMX: e.clientX, startMY: e.clientY, startScale: s.scale };
+      return;
+    }
+    if (inRect(x, y, s.x, s.y, sz, sz)) {
+      drag = { target: s, mode: 'move', startMX: e.clientX, startMY: e.clientY, startX: s.x, startY: s.y };
+      return;
+    }
+  }
+
+  // Text box
+  if (inHandle(x, y, bx, by, bw, bh)) {
+    drag = { target: 'text', mode: 'resize', startMX: e.clientX, startMY: e.clientY, startScale: textScale };
+  } else if (inRect(x, y, bx, by, bw, bh)) {
+    drag = { target: 'text', mode: 'move',   startMX: e.clientX, startMY: e.clientY, startX: bx, startY: by };
+  }
 });
 
-// ═══════════════════════════════════
+pc.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  pc.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.startMX;
+  const dy = e.clientY - drag.startMY;
+
+  if (drag.target === 'text') {
+    if (drag.mode === 'move')   { bx = drag.startX + dx; by = drag.startY + dy; }
+    else { textScale = Math.max(0.3, Math.min(5, drag.startScale + (dx + dy) / 200)); }
+  } else {
+    const s = drag.target;
+    if (drag.mode === 'move')   { s.x = drag.startX + dx; s.y = drag.startY + dy; }
+    else { s.scale = Math.max(0.2, Math.min(8, drag.startScale + (dx + dy) / 150)); }
+  }
+});
+
+window.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+
+window.addEventListener('mouseup',  () => { drag = null; });
+window.addEventListener('touchend', () => { drag = null; });
+
+pc.addEventListener('mousemove', e => {
+  if (drag) return;
+  const { x, y } = cPt(e.clientX, e.clientY);
+  let cursor = 'default';
+
+  for (let i = stickers.length - 1; i >= 0; i--) {
+    const s  = stickers[i];
+    const sz = STICKER_BASE_PX * s.scale;
+    if (inHandle(x, y, s.x, s.y, sz, sz)) { cursor = 'nwse-resize'; break; }
+    if (inRect(x, y, s.x, s.y, sz, sz))   { cursor = 'grab'; break; }
+  }
+
+  if (cursor === 'default') {
+    if (inHandle(x, y, bx, by, bw, bh))   cursor = 'nwse-resize';
+    else if (inRect(x, y, bx, by, bw, bh)) cursor = 'grab';
+  }
+
+  pc.style.cursor = cursor;
+});
+
+// ═══════════════════════════════════════════════
 //  LYRICS
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function readLines() {
   lines = lta.value.split('\n').map(l => l.trimEnd());
 }
@@ -621,7 +761,7 @@ function renderPerformList() {
     d.textContent = l || '(empty)';
     d.className = 'lyric-line'
       + (i === curLine     ? ' active'  : '')
-      + (i <  curLine      ? ' done'    : '')
+      + (i  < curLine      ? ' done'    : '')
       + (i === curLine + 1 ? ' next-up' : '');
     lyricList.appendChild(d);
   });
@@ -639,36 +779,30 @@ document.addEventListener('keydown', e => {
   if (e.code === 'ShiftRight') { e.preventDefault(); advanceLine(); }
 });
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  CONTROLS
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 playBtn.addEventListener('click', () => {
   if (!vid.src) return;
-
   if (recState === 'paused') {
-    // Pick up any edits made during pause — update lines from curLine onward
     const fresh = lta.value.split('\n').map(l => l.trimEnd());
     lines = fresh;
     rebuildFlicker();
     recState = 'recording';
     updateUI();
     renderPerformList();
-    statusEl.textContent = 'Recording resumed…';
     vid.play();
+    statusEl.textContent = 'Recording resumed…';
     return;
   }
-
   if (recState === 'idle') {
-    readLines();
-    curLine = 0;
-    rebuildFlicker();
-    startExportCapture(); // plays vid internally after setup
+    readLines(); curLine = 0; rebuildFlicker();
+    startExportCapture();
   }
 });
 
 pauseBtn.addEventListener('click', () => {
   if (recState !== 'recording') return;
-  // Pause video first — this immediately stops the captureStream audio track too
   vid.pause();
   recState = 'paused';
   updateUI();
@@ -677,14 +811,10 @@ pauseBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', async () => {
   await discardRecording();
-  vid.pause();
-  vid.currentTime = 0;
-  scrubber.value = 0;
-  timeNow.textContent = '0:00';
-  curLine = 0;
-  recState = 'idle';
-  updateUI();
-  rebuildFlicker();
+  vid.pause(); vid.currentTime = 0;
+  scrubber.value = 0; timeNow.textContent = '0:00';
+  curLine = 0; recState = 'idle';
+  updateUI(); rebuildFlicker();
   statusEl.textContent = 'Reset — press Play to start fresh.';
 });
 
@@ -693,26 +823,20 @@ exportBtn.addEventListener('click', () => {
   stopExportCapture();
 });
 
-// ═══════════════════════════════════
-//  COMPOSITE CANVAS
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  COMPOSITE CANVAS  (export: video + glyphs + stickers, no UI)
+// ═══════════════════════════════════════════════
 const compCanvas = document.createElement('canvas');
 const compCtx    = compCanvas.getContext('2d');
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  START RECORDING
-//
-//  Audio strategy: use vid.captureStream() to get the audio track,
-//  then route it through AudioContext → AudioEncoder.
-//  When vid.pause() is called, the captureStream audio track also
-//  pauses automatically — no need to suspend the AudioContext.
-//  This is the only approach that reliably pauses/resumes in sync.
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function startExportCapture() {
   if (recState !== 'idle') return;
   if (!vid.videoWidth) { statusEl.textContent = 'No video loaded.'; return; }
 
-  const EXPORT_FPS = Number(fpsSelect?.value ?? 30);
+  const EXPORT_FPS = Number(fpsSelect?.value ?? 60);
   const BITRATE    = Number(qualityPreset?.value ?? 16) * 1_000_000;
 
   compCanvas.width  = vid.videoWidth;
@@ -721,38 +845,23 @@ function startExportCapture() {
   const sy = vid.videoHeight / pc.height;
   const W  = vid.videoWidth, H = vid.videoHeight;
 
-  // WebM fallback
   if (typeof VideoEncoder === 'undefined' || typeof Mp4Muxer === 'undefined') {
-    recState = 'recording';
-    updateUI();
-    renderPerformList();
+    recState = 'recording'; updateUI(); renderPerformList();
     startWebmFallback(sx, sy, W, H, EXPORT_FPS);
-    vid.play();
-    return;
+    vid.play(); return;
   }
 
-  // ── Get audio stream from the video element ──────────────────
-  // captureStream() gives us a live MediaStream whose audio track
-  // pauses exactly when vid.pause() is called. We feed it into
-  // a MediaStreamAudioSourceNode → ScriptProcessor → AudioEncoder.
-  // Because the SOURCE is the capture stream (not MediaElementSource),
-  // we don't hit the "one source per element" browser limit.
-  // Each recording session creates a fresh AudioContext.
-  if (sharedAudioCtx) {
-    try { sharedAudioCtx.close(); } catch(e) {}
-  }
+  // Fresh AudioContext each session
+  if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} }
   sharedAudioCtx = new AudioContext();
 
   const vidStream   = vid.captureStream ? vid.captureStream() : null;
   const audioTracks = vidStream?.getAudioTracks() ?? [];
-  let   hasAudio    = audioTracks.length > 0;
+  const hasAudio    = audioTracks.length > 0;
 
-  let audioMediaStream = null;
   if (hasAudio) {
-    audioMediaStream = new MediaStream(audioTracks);
-    sharedAudioSource = sharedAudioCtx.createMediaStreamSource(audioMediaStream);
-    // Don't connect to destination — we only want to encode, not play back
-    // (video element still plays its own audio to speakers)
+    const ams = new MediaStream(audioTracks);
+    sharedAudioSource = sharedAudioCtx.createMediaStreamSource(ams);
   }
 
   const sampleRate  = sharedAudioCtx.sampleRate;
@@ -769,17 +878,8 @@ function startExportCapture() {
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error:  e => console.error('VideoEncoder:', e),
   });
-
-  // avc1.64002a = H.264 High Profile Level 4.2
-  // Supports up to 1920×1080 @ 60fps — required for TikTok 1080p60
-  // avc1.42001f (Baseline L3.1) only supports up to 1280×720 @ 30fps
-  // and produces error -12842 on macOS for any larger content
-  videoEncoder.configure({
-    codec:     'avc1.64002a',
-    width:     W, height: H,
-    bitrate:   BITRATE,
-    framerate: EXPORT_FPS,
-  });
+  // avc1.64002a = H.264 High Profile Level 4.2 → supports 1920×1080 @ 60fps
+  videoEncoder.configure({ codec: 'avc1.64002a', width: W, height: H, bitrate: BITRATE, framerate: EXPORT_FPS });
 
   let audioFrameCount = 0;
 
@@ -788,17 +888,10 @@ function startExportCapture() {
       output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
       error:  e => console.error('AudioEncoder:', e),
     });
-    audioEncoder.configure({
-      codec:            'mp4a.40.2',
-      sampleRate,
-      numberOfChannels: numChannels,
-      bitrate:          192_000,
-    });
+    audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: numChannels, bitrate: 192_000 });
 
     audioProcessor = sharedAudioCtx.createScriptProcessor(4096, numChannels, numChannels);
     audioProcessor.onaudioprocess = ev => {
-      // When vid is paused, captureStream audio track delivers silence/nothing.
-      // We only encode when actively recording to keep timestamps contiguous.
       if (recState !== 'recording') return;
       const left  = ev.inputBuffer.getChannelData(0);
       const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
@@ -806,111 +899,88 @@ function startExportCapture() {
       const frame = new AudioData({
         format: 'f32-planar', sampleRate,
         numberOfFrames: left.length, numberOfChannels: numChannels,
-        timestamp: ts,
-        data: new Float32Array([...left, ...right]),
+        timestamp: ts, data: new Float32Array([...left, ...right]),
       });
-      audioEncoder.encode(frame);
-      frame.close();
+      audioEncoder.encode(frame); frame.close();
       audioFrameCount++;
     };
     sharedAudioSource.connect(audioProcessor);
-    // Connect through a silent gain to destination so the Web Audio graph
-    // actually runs (browsers suspend graphs with no destination connection)
     const silentGain = sharedAudioCtx.createGain();
     silentGain.gain.value = 0;
     audioProcessor.connect(silentGain);
     silentGain.connect(sharedAudioCtx.destination);
   }
 
-  recState = 'recording';
-  updateUI();
-  renderPerformList();
-  statusEl.textContent = 'Recording… Right Shift to advance. Pause or Export when done.';
+  recState = 'recording'; updateUI(); renderPerformList();
+  statusEl.textContent = 'Recording… Right Shift to advance.';
 
-  // Play video — AudioContext resumes automatically on user gesture
   sharedAudioCtx.resume().then(() => vid.play());
 
-  // ── Video frame capture ──────────────────────────────────────
   let frameCount = 0, recStartTime = null;
   const frameDur = 1e6 / EXPORT_FPS;
 
   function captureFrame(ts) {
-    if (recState === 'idle') return; // ended
+    if (recState === 'idle') return;
     requestAnimationFrame(captureFrame);
-
-    if (recState === 'paused') {
-      recStartTime = null; // reset clock on next resume
-      return;
-    }
-
+    if (recState === 'paused') { recStartTime = null; return; }
     if (recStartTime === null) recStartTime = ts;
+
     const elapsed  = ts - recStartTime;
     const expected = Math.floor(elapsed / (1000 / EXPORT_FPS));
     if (expected <= frameCount - 1) return;
 
+    // Composite: video + text + stickers (no UI boxes)
     compCtx.drawImage(vid, 0, 0, W, H);
     const t = lines[curLine];
     if (t) drawGlyphs(compCtx, t, bx * sx, by * sy, bw * sx, sx);
+    drawStickers(compCtx, sx); // sx ≈ sy for 9:16, fine to use for both
 
-    const frame = new VideoFrame(compCanvas, {
-      timestamp: frameCount * frameDur,
-      duration:  frameDur,
-    });
+    const frame = new VideoFrame(compCanvas, { timestamp: frameCount * frameDur, duration: frameDur });
     videoEncoder.encode(frame, { keyFrame: frameCount % Math.round(EXPORT_FPS * 2) === 0 });
     frame.close();
     frameCount++;
-
     if (vid.ended) stopExportCapture();
   }
   requestAnimationFrame(captureFrame);
 }
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  STOP & SAVE
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 async function stopExportCapture() {
   if (recState === 'idle') return;
-  recState = 'idle';
-  updateUI();
+  recState = 'idle'; updateUI();
 
   if (videoEncoder) {
     encOverlay.classList.add('show');
-    encLabel.textContent = 'Encoding…';
-    encFill.style.width = '15%';
-
+    encLabel.textContent = 'Encoding…'; encFill.style.width = '15%';
     if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
     if (audioEncoder)   { try { await audioEncoder.flush(); } catch(e) {} }
     encFill.style.width = '55%';
-
     try { await videoEncoder.flush(); } catch(e) {}
     encFill.style.width = '85%';
-
     muxer.finalize();
-
     if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx = null; }
     sharedAudioSource = null;
-
     const { buffer } = muxer.target;
     const blob = new Blob([buffer], { type: 'video/mp4' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href = url; a.download = 'lyrics_overlay.mp4'; a.click();
     URL.revokeObjectURL(url);
-
     encFill.style.width = '100%';
     encLabel.textContent = 'Done! ✓';
     statusEl.textContent = 'MP4 saved! Reset to record again.';
     setTimeout(() => encOverlay.classList.remove('show'), 1500);
-
     videoEncoder = null; audioEncoder = null; muxer = null;
   } else {
     stopWebmFallback();
   }
 }
 
-// ═══════════════════════════════════
-//  DISCARD (reset)
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
+//  DISCARD
+// ═══════════════════════════════════════════════
 async function discardRecording() {
   recState = 'idle';
   if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e) {} audioProcessor = null; }
@@ -922,15 +992,14 @@ async function discardRecording() {
   if (mrec) { try { mrec.stop(); } catch(e) {} mrec = null; mchunks = []; }
 }
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  WEBM FALLBACK
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 function startWebmFallback(sx, sy, W, H, fps) {
   const vidStream   = vid.captureStream?.() ?? vid.mozCaptureStream?.();
   const audioTracks = vidStream?.getAudioTracks() ?? [];
   const stream      = compCanvas.captureStream(fps);
   audioTracks.forEach(t => stream.addTrack(t));
-
   const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm']
     .find(m => MediaRecorder.isTypeSupported(m)) ?? '';
   mrec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
@@ -941,11 +1010,10 @@ function startWebmFallback(sx, sy, W, H, fps) {
     const u = URL.createObjectURL(b);
     const a = document.createElement('a'); a.href=u; a.download='lyrics_overlay.webm'; a.click();
     URL.revokeObjectURL(u);
-    statusEl.textContent = 'Saved WebM — convert at handbrake.fr for MP4.';
+    statusEl.textContent = 'Saved WebM. Convert at handbrake.fr for MP4.';
     mrec = null; mchunks = [];
   };
   mrec.start(100);
-
   let lastT = 0;
   function compLoop(ts) {
     if (recState === 'idle') return;
@@ -955,6 +1023,7 @@ function startWebmFallback(sx, sy, W, H, fps) {
       compCtx.drawImage(vid, 0, 0, W, H);
       const t = lines[curLine];
       if (t) drawGlyphs(compCtx, t, bx*sx, by*sy, bw*sx, sx);
+      drawStickers(compCtx, sx);
       lastT = ts;
     }
   }
@@ -966,9 +1035,9 @@ function stopWebmFallback() {
   setTimeout(()=>{ try { mrec.stop(); } catch(e){} }, 150);
 }
 
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 //  INIT
-// ═══════════════════════════════════
+// ═══════════════════════════════════════════════
 readLines();
 updateUI();
 </script>
