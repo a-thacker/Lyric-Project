@@ -441,12 +441,6 @@ simplifyBtn.addEventListener('click', () => {
 //  { "profiles": [ { "id": 1234, "name": "...", "lyrics": "..." }, ... ] }
 //
 //  All reads/writes go through fetchProfiles() / saveProfiles().
-//  If JSONBIN_BIN_ID is not configured, falls back to localStorage
-//  so the tool still works locally without setup.
-// ═══════════════════════════════════════════════
-
-const USE_JSONBIN = JSONBIN_BIN_ID !== 'YOUR_BIN_ID_HERE' && JSONBIN_KEY !== 'YOUR_API_KEY_HERE';
-
 // ── Fetch all profiles ───────────────────────────────
 async function fetchProfiles() {
   if (!USE_JSONBIN) {

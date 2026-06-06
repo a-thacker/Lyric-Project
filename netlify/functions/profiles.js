@@ -14,7 +14,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-export async function handler(event) {
+exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: cors };
   }
@@ -44,4 +44,4 @@ export async function handler(event) {
   }
 
   return { statusCode: 405, body: 'Method not allowed' };
-}
+};
