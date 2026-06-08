@@ -167,6 +167,11 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
     <label>Video</label>
     <input type="file" accept="video/*" id="vInput">
   </div>
+  <div class="load-row">
+    <label>Audio</label>
+    <input type="file" accept="audio/*" id="aInput">
+    <button id="aClear" style="background:none;border:none;color:#444;cursor:pointer;font-size:13px;padding:0 4px" title="Remove audio">×</button>
+  </div>
   <div class="video-wrap">
     <div class="video-inner">
       <video id="vid" playsinline></video>
@@ -202,8 +207,6 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
     <textarea id="lta" placeholder="Line 1&#10;Line 2&#10;Line 3"></textarea>
     <div class="toolbar-row">
       <button class="tool-btn accent" id="simplifyBtn">✦ Simplify Text</button>
-      <label style="font-size:11px;color:#333;display:flex;align-items:center">Add sticker:</label>
-      <button class="sticker-btn" data-sticker="star">⭐ Star</button>
     </div>
   </div>
 
@@ -231,13 +234,14 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 
   <div id="settingsPanel">
     <div class="sp-hd">
-      <span>Text Settings</span>
+      <span>Settings</span>
       <button id="spClose">×</button>
     </div>
+
     <div class="sp-sec">
-      <h3>Font</h3>
+      <h3>Text</h3>
       <div class="sp-row">
-        <label>Style</label>
+        <label>Font</label>
         <select id="fontStyle">
           <option value="normal">Normal</option>
           <option value="bold" selected>Bold</option>
@@ -245,14 +249,23 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
         </select>
       </div>
       <div class="sp-row">
-        <label>Alignment</label>
+        <label>Align</label>
         <select id="textAlign">
           <option value="left">Left</option>
           <option value="center" selected>Center</option>
           <option value="right">Right</option>
         </select>
       </div>
+      <div class="sp-row">
+        <label>Color</label>
+        <input type="color" id="textColor" value="#ffffff" style="width:38px;height:24px;padding:1px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;cursor:pointer">
+      </div>
+      <div class="sp-row">
+        <label>Typewriter effect</label>
+        <input type="checkbox" id="typewriterEnabled" checked>
+      </div>
     </div>
+
     <div class="sp-sec">
       <h3>Shadow</h3>
       <div class="sp-row">
@@ -265,26 +278,40 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
         <span class="sp-val" id="shadowValue">25%</span>
       </div>
     </div>
+
     <div class="sp-sec">
-      <h3>Preview Overlays</h3>
-      <p class="quality-note" style="margin-bottom:4px">Shows app UI zones — never exported</p>
+      <h3>Stickers</h3>
       <div class="sp-row">
-        <label>TikTok UI</label>
+        <label>Add</label>
+        <button class="sticker-btn" data-sticker="star">⭐ Star</button>
+      </div>
+      <div class="sp-row">
+        <label>Remove all</label>
+        <button class="tool-btn" id="clearStickersBtn">✕ Clear</button>
+      </div>
+    </div>
+
+    <div class="sp-sec">
+      <h3>Safe Zone Preview</h3>
+      <p class="quality-note" style="margin-bottom:4px">Highlights unsafe zones — never exported</p>
+      <div class="sp-row">
+        <label>TikTok</label>
         <input type="checkbox" id="overlayTikTok">
       </div>
       <div class="sp-row">
-        <label>Instagram Reels UI</label>
+        <label>Instagram</label>
         <input type="checkbox" id="overlayInsta">
       </div>
     </div>
+
     <div class="sp-sec">
       <h3>Export Quality</h3>
       <div class="sp-row">
         <label>Bitrate</label>
         <select id="qualityPreset">
-          <option value="8">8 Mbps (Standard)</option>
-          <option value="16" selected>16 Mbps (High)</option>
-          <option value="30">30 Mbps (Max)</option>
+          <option value="8">8 Mbps</option>
+          <option value="16" selected>16 Mbps</option>
+          <option value="30">30 Mbps</option>
         </select>
       </div>
       <div class="sp-row">
@@ -294,7 +321,6 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
           <option value="60" selected>60 fps</option>
         </select>
       </div>
-      <p class="quality-note">Higher = larger file, longer encode. TikTok: up to 1080p60.</p>
     </div>
   </div>
 </div>
@@ -354,6 +380,8 @@ const STICKER_REGISTRY = {
 //  ELEMENTS
 // ═══════════════════════════════════════════════
 const vInput         = document.getElementById('vInput');
+const aInput         = document.getElementById('aInput');
+const aClear         = document.getElementById('aClear');
 const vid            = document.getElementById('vid');
 const pc             = document.getElementById('pc');
 const pctx           = pc.getContext('2d');
@@ -375,6 +403,7 @@ const shadowOpacity  = document.getElementById('shadowOpacity');
 const shadowValue    = document.getElementById('shadowValue');
 const fontStyle      = document.getElementById('fontStyle');
 const textAlign      = document.getElementById('textAlign');
+const textColor      = document.getElementById('textColor');
 const qualityPreset  = document.getElementById('qualityPreset');
 const fpsSelect      = document.getElementById('fpsSelect');
 const encOverlay     = document.getElementById('encOverlay');
@@ -387,6 +416,7 @@ const exportBtn      = document.getElementById('exportBtn');
 const overlayTikTok  = document.getElementById('overlayTikTok');
 const overlayInsta   = document.getElementById('overlayInsta');
 const simplifyBtn    = document.getElementById('simplifyBtn');
+const clearStickersBtn = document.getElementById('clearStickersBtn');
 const profileToggle  = document.getElementById('profileToggle');
 const profilePanel   = document.getElementById('profilePanel');
 const ppClose        = document.getElementById('ppClose');
@@ -413,6 +443,32 @@ fontStyle.addEventListener('change', () => {
   Object.keys(glyphs).forEach(k => delete glyphs[k]);
   rebuildFlicker();
 });
+
+// ═══════════════════════════════════════════════
+//  CUSTOM AUDIO FILE
+// ═══════════════════════════════════════════════
+let customAudioBuffer = null; // decoded AudioBuffer, or null = use video audio
+
+aInput.addEventListener('change', async () => {
+  const f = aInput.files[0]; if (!f) return;
+  // Decode immediately so it's ready when recording starts
+  const arrayBuf = await f.arrayBuffer();
+  const tempCtx  = new AudioContext();
+  customAudioBuffer = await tempCtx.decodeAudioData(arrayBuf);
+  await tempCtx.close();
+  statusEl.textContent = `Custom audio loaded: ${f.name}`;
+});
+
+aClear.addEventListener('click', () => {
+  customAudioBuffer = null;
+  aInput.value = '';
+  statusEl.textContent = 'Custom audio removed — using video audio.';
+});
+
+// ═══════════════════════════════════════════════
+//  CLEAR STICKERS
+// ═══════════════════════════════════════════════
+clearStickersBtn.addEventListener('click', () => { stickers.length = 0; });
 
 // ═══════════════════════════════════════════════
 //  SIMPLIFY TEXT
@@ -761,6 +817,37 @@ function getG(c, vi) {
   return (g && g.complete && g.naturalWidth > 0) ? g : null;
 }
 
+// ═══════════════════════════════════════════════
+//  GLYPH TINT CACHE
+//  Pre-tints glyphs onto offscreen canvases so the
+//  source-atop composite never bleeds onto the main canvas.
+// ═══════════════════════════════════════════════
+const tintCache = {}; // key: `${glyphSrc}_${color}` → offscreen canvas
+
+function getTintedGlyph(g, color, gw, gh) {
+  // Round to avoid too many cache entries from sub-pixel sizes
+  const w = Math.ceil(gw), h = Math.ceil(gh);
+  const key = `${g.src}_${color}_${w}_${h}`;
+  if (tintCache[key]) return tintCache[key];
+
+  const oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  const oc2 = oc.getContext('2d');
+  oc2.drawImage(g, 0, 0, w, h);
+  oc2.globalCompositeOperation = 'source-atop';
+  oc2.fillStyle = color;
+  oc2.fillRect(0, 0, w, h);
+  // Reset so future draws to this canvas are normal
+  oc2.globalCompositeOperation = 'source-over';
+  tintCache[key] = oc;
+  return oc;
+}
+
+// Clear tint cache when color changes so new color takes effect immediately
+textColor?.addEventListener('input', () => {
+  Object.keys(tintCache).forEach(k => delete tintCache[k]);
+});
+
 // ─── Current font's per-glyph scale ────────────────
 function getFontScale() {
   const style = fontStyle?.value ?? 'bold';
@@ -795,13 +882,32 @@ function layoutLines(text, gs, ls, sw, maxW) {
 }
 
 // ═══════════════════════════════════════════════
+//  TYPEWRITER STATE
+// ═══════════════════════════════════════════════
+let typewriterChars = Infinity; // how many chars of current line to show
+let typewriterTimer = null;
+
+function startTypewriter(text) {
+  const twEnabled = document.getElementById('typewriterEnabled');
+  if (!twEnabled?.checked) { typewriterChars = Infinity; return; }
+  clearInterval(typewriterTimer);
+  typewriterChars = 0;
+  const total = text.replace(/ /g, '').length; // count non-space chars
+  // Speed: reveal all chars in ~300ms regardless of line length
+  const intervalMs = Math.max(18, 300 / Math.max(total, 1));
+  typewriterTimer = setInterval(() => {
+    typewriterChars++;
+    if (typewriterChars >= total) { clearInterval(typewriterTimer); typewriterChars = Infinity; }
+  }, intervalMs);
+}
+
+// ═══════════════════════════════════════════════
 //  DRAW GLYPHS
 //  sc = export scale (videoW/canvasW). For preview sc=1.
-//  userScale is the resize-handle multiplier.
 // ═══════════════════════════════════════════════
 function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
-  const fontSc = getFontScale();          // per-font normalisation
-  const gs = fontSc * sc * textScale;     // final glyph draw scale
+  const fontSc = getFontScale();
+  const gs = fontSc * sc * textScale;
   const ls = LETTER_SPACING * sc * textScale;
   const sw = SPACE_WIDTH     * sc * textScale;
   const lh = LINE_HEIGHT     * sc * textScale;
@@ -823,7 +929,10 @@ function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
     ctx2.restore();
   }
 
-  let ci = 0, y = sy;
+  const color = textColor?.value ?? '#ffffff';
+  const tint  = color !== '#ffffff' && color !== '#FFFFFF';
+  let ci = 0, visibleNonSpace = 0, y = sy;
+
   for (const row of rows) {
     const align = textAlign?.value ?? 'center';
     let x = align === 'center' ? sx + (maxW - row.width) / 2
@@ -831,7 +940,19 @@ function drawGlyphs(ctx2, text, sx, sy, maxW, sc) {
     for (const word of row.words) {
       for (const ch of word) {
         const g = getG(ch, flicker[ci]);
-        if (g) { ctx2.drawImage(g, x, y, g.width * gs, g.height * gs); x += g.width * gs + ls; }
+        if (g) {
+          const gw = g.width * gs, gh = g.height * gs;
+          // Typewriter: skip chars beyond revealed count
+          if (visibleNonSpace < typewriterChars) {
+            if (tint) {
+              ctx2.drawImage(getTintedGlyph(g, color, gw, gh), x, y, gw, gh);
+            } else {
+              ctx2.drawImage(g, x, y, gw, gh);
+            }
+          }
+          visibleNonSpace++;
+          x += gw + ls;
+        }
         ci++;
       }
       ci++; x += sw * 2;
@@ -887,8 +1008,9 @@ function drawTextBox() {
 }
 
 // ═══════════════════════════════════════════════
-//  BOUNDING BOX — sticker
+//  BOUNDING BOX — sticker (with × delete button top-left)
 // ═══════════════════════════════════════════════
+const DEL_HANDLE = 14;
 function drawStickerBox(s) {
   const sz = STICKER_BASE_PX * s.scale;
   pctx.save();
@@ -897,12 +1019,22 @@ function drawStickerBox(s) {
   pctx.lineWidth = 1.5;
   pctx.strokeRect(s.x, s.y, sz, sz);
   pctx.setLineDash([]);
+
+  // Resize handle — bottom-right (blue)
   pctx.fillStyle = '#2196f3';
   pctx.fillRect(s.x + sz - HANDLE, s.y + sz - HANDLE, HANDLE, HANDLE);
   pctx.fillStyle = '#fff';
   pctx.font = `bold ${HANDLE - 2}px system-ui`;
   pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
   pctx.fillText('⤡', s.x + sz - HANDLE / 2, s.y + sz - HANDLE / 2);
+
+  // Delete × — top-left (red)
+  pctx.fillStyle = '#e53935';
+  pctx.fillRect(s.x, s.y, DEL_HANDLE, DEL_HANDLE);
+  pctx.fillStyle = '#fff';
+  pctx.font = `bold ${DEL_HANDLE - 2}px system-ui`;
+  pctx.fillText('×', s.x + DEL_HANDLE / 2, s.y + DEL_HANDLE / 2);
+
   pctx.restore();
 }
 
@@ -1020,10 +1152,18 @@ pc.addEventListener('mousedown', e => {
   for (let i = stickers.length - 1; i >= 0; i--) {
     const s  = stickers[i];
     const sz = STICKER_BASE_PX * s.scale;
+
+    // × delete button — top-left corner
+    if (x >= s.x && x <= s.x + DEL_HANDLE && y >= s.y && y <= s.y + DEL_HANDLE) {
+      stickers.splice(i, 1);
+      return;
+    }
+    // Resize handle — bottom-right
     if (inHandle(x, y, s.x, s.y, sz, sz)) {
       drag = { target: s, mode: 'resize', startMX: e.clientX, startMY: e.clientY, startScale: s.scale };
       return;
     }
+    // Move
     if (inRect(x, y, s.x, s.y, sz, sz)) {
       drag = { target: s, mode: 'move', startMX: e.clientX, startMY: e.clientY, startX: s.x, startY: s.y };
       return;
@@ -1111,6 +1251,7 @@ function advanceLine() {
   if (curLine >= lines.length - 1) return;
   curLine++;
   rebuildFlicker();
+  startTypewriter(lines[curLine] ?? '');
   renderPerformList();
 }
 
@@ -1127,6 +1268,7 @@ playBtn.addEventListener('click', () => {
     const fresh = lta.value.split('\n').map(l => l.trimEnd());
     lines = fresh;
     rebuildFlicker();
+    startTypewriter(lines[curLine] ?? '');
     recState = 'recording';
     updateUI();
     renderPerformList();
@@ -1136,6 +1278,7 @@ playBtn.addEventListener('click', () => {
   }
   if (recState === 'idle') {
     readLines(); curLine = 0; rebuildFlicker();
+    startTypewriter(lines[0] ?? '');
     startExportCapture();
   }
 });
@@ -1159,6 +1302,7 @@ resetBtn.addEventListener('click', async () => {
 
 exportBtn.addEventListener('click', () => {
   if (recState === 'idle') return;
+  vid.pause();
   stopExportCapture();
 });
 
@@ -1194,16 +1338,26 @@ function startExportCapture() {
   if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} }
   sharedAudioCtx = new AudioContext();
 
-  const vidStream   = vid.captureStream ? vid.captureStream() : null;
-  const audioTracks = vidStream?.getAudioTracks() ?? [];
-  const hasAudio    = audioTracks.length > 0;
+  // Determine audio source:
+  // - If user loaded a custom audio file, use that (decoded AudioBuffer)
+  // - Otherwise, tap the video's captureStream audio track
+  let hasAudio = false;
 
-  if (hasAudio) {
-    const ams = new MediaStream(audioTracks);
-    sharedAudioSource = sharedAudioCtx.createMediaStreamSource(ams);
+  if (customAudioBuffer) {
+    // Custom audio: render the entire AudioBuffer to raw PCM,
+    // then feed it to AudioEncoder frame by frame during capture
+    hasAudio = true;
+  } else {
+    const vidStream   = vid.captureStream ? vid.captureStream() : null;
+    const audioTracks = vidStream?.getAudioTracks() ?? [];
+    if (audioTracks.length > 0) {
+      hasAudio = true;
+      const ams = new MediaStream(audioTracks);
+      sharedAudioSource = sharedAudioCtx.createMediaStreamSource(ams);
+    }
   }
 
-  const sampleRate  = sharedAudioCtx.sampleRate;
+  const sampleRate  = customAudioBuffer ? customAudioBuffer.sampleRate : sharedAudioCtx.sampleRate;
   const numChannels = 2;
 
   muxer = new Mp4Muxer.Muxer({
@@ -1229,25 +1383,31 @@ function startExportCapture() {
     });
     audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: numChannels, bitrate: 192_000 });
 
-    audioProcessor = sharedAudioCtx.createScriptProcessor(4096, numChannels, numChannels);
-    audioProcessor.onaudioprocess = ev => {
-      if (recState !== 'recording') return;
-      const left  = ev.inputBuffer.getChannelData(0);
-      const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
-      const ts    = Math.round((audioFrameCount * 4096 / sampleRate) * 1e6);
-      const frame = new AudioData({
-        format: 'f32-planar', sampleRate,
-        numberOfFrames: left.length, numberOfChannels: numChannels,
-        timestamp: ts, data: new Float32Array([...left, ...right]),
-      });
-      audioEncoder.encode(frame); frame.close();
-      audioFrameCount++;
-    };
-    sharedAudioSource.connect(audioProcessor);
-    const silentGain = sharedAudioCtx.createGain();
-    silentGain.gain.value = 0;
-    audioProcessor.connect(silentGain);
-    silentGain.connect(sharedAudioCtx.destination);
+    if (customAudioBuffer) {
+      // Custom audio path: we'll feed PCM chunks frame-by-frame in captureFrame
+      // so audio stays in sync with video timestamps
+    } else {
+      // Video audio path: ScriptProcessor taps captureStream
+      audioProcessor = sharedAudioCtx.createScriptProcessor(4096, numChannels, numChannels);
+      audioProcessor.onaudioprocess = ev => {
+        if (recState !== 'recording') return;
+        const left  = ev.inputBuffer.getChannelData(0);
+        const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
+        const ts    = Math.round((audioFrameCount * 4096 / sampleRate) * 1e6);
+        const frame = new AudioData({
+          format: 'f32-planar', sampleRate,
+          numberOfFrames: left.length, numberOfChannels: numChannels,
+          timestamp: ts, data: new Float32Array([...left, ...right]),
+        });
+        audioEncoder.encode(frame); frame.close();
+        audioFrameCount++;
+      };
+      sharedAudioSource.connect(audioProcessor);
+      const silentGain = sharedAudioCtx.createGain();
+      silentGain.gain.value = 0;
+      audioProcessor.connect(silentGain);
+      silentGain.connect(sharedAudioCtx.destination);
+    }
   }
 
   recState = 'recording'; updateUI(); renderPerformList();
@@ -1257,6 +1417,15 @@ function startExportCapture() {
 
   let frameCount = 0, recStartTime = null;
   const frameDur = 1e6 / EXPORT_FPS;
+
+  // For custom audio: pre-extract channel data
+  let customL = null, customR = null;
+  if (customAudioBuffer && audioEncoder) {
+    customL = customAudioBuffer.getChannelData(0);
+    customR = customAudioBuffer.numberOfChannels > 1
+      ? customAudioBuffer.getChannelData(1)
+      : customL;
+  }
 
   function captureFrame(ts) {
     if (recState === 'idle') return;
@@ -1268,11 +1437,33 @@ function startExportCapture() {
     const expected = Math.floor(elapsed / (1000 / EXPORT_FPS));
     if (expected <= frameCount - 1) return;
 
+    // Feed custom audio chunk aligned to this video frame's timestamp
+    if (customL && audioEncoder) {
+      const vidTimeSec  = frameCount / EXPORT_FPS;
+      const sampleStart = Math.floor(vidTimeSec * sampleRate);
+      const chunkSize   = Math.floor(sampleRate / EXPORT_FPS); // samples per video frame
+      if (sampleStart < customL.length) {
+        const end  = Math.min(sampleStart + chunkSize, customL.length);
+        const len  = end - sampleStart;
+        const data = new Float32Array(len * 2);
+        data.set(customL.subarray(sampleStart, end), 0);
+        data.set(customR.subarray(sampleStart, end), len);
+        const aFrame = new AudioData({
+          format: 'f32-planar', sampleRate,
+          numberOfFrames: len, numberOfChannels: numChannels,
+          timestamp: frameCount * frameDur,
+          data,
+        });
+        audioEncoder.encode(aFrame);
+        aFrame.close();
+      }
+    }
+
     // Composite: video + text + stickers (no UI boxes)
     compCtx.drawImage(vid, 0, 0, W, H);
     const t = lines[curLine];
     if (t) drawGlyphs(compCtx, t, bx * sx, by * sy, bw * sx, sx);
-    drawStickers(compCtx, sx); // sx ≈ sy for 9:16, fine to use for both
+    drawStickers(compCtx, sx);
 
     const frame = new VideoFrame(compCanvas, { timestamp: frameCount * frameDur, duration: frameDur });
     videoEncoder.encode(frame, { keyFrame: frameCount % Math.round(EXPORT_FPS * 2) === 0 });
