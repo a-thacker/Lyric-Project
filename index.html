@@ -44,7 +44,7 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 .hdr-btn.on{color:#ff5722}
 
 /* Edit area */
-#editArea{flex:1;display:flex;flex-direction:column;gap:6px;padding:10px 12px;min-height:0}
+#editArea{flex:1;display:flex;flex-direction:column;gap:6px;padding:10px 12px;min-height:0;position:relative}
 #editHint{font-size:11px;color:#2e2e2e}
 #lta{flex:1;resize:none;padding:10px;font-size:14px;line-height:1.7;background:#0d0d0d;color:#ccc;border:1px solid #1a1a1a;border-radius:8px;font-family:system-ui,sans-serif;min-height:0}
 #lta:focus{outline:none;border-color:#ff5722}
@@ -58,6 +58,23 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
   transition:background .1s,color .1s;
 }
 .sticker-btn:hover{background:#2a2a2a;color:#ccc}
+
+/* Inline box-assign overlay — sits over textarea right edge */
+.box-assign-overlay{
+  position:absolute;right:12px;top:0;bottom:0;
+  pointer-events:none;display:flex;flex-direction:column;
+  justify-content:flex-start;padding-top:10px;
+}
+.box-assign-overlay select{
+  pointer-events:auto;
+  background:#1a1a1a;color:#aaa;border:1px solid #252525;
+  border-radius:4px;padding:1px 3px;font-size:10px;
+  margin-bottom:0;opacity:0.85;
+  line-height:1.7; /* match textarea line-height */
+  height:24px;
+}
+/* Make textarea leave room on right for dropdowns when multiple boxes */
+#lta.has-boxes{padding-right:60px}
 
 /* Perform area */
 #performArea{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -264,6 +281,11 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
         <label>Typewriter effect</label>
         <input type="checkbox" id="typewriterEnabled" checked>
       </div>
+      <div class="sp-row">
+        <label>Speed</label>
+        <input type="range" id="twSpeed" min="1" max="10" value="7" style="flex:1;accent-color:#ff5722">
+        <span class="sp-val" id="twSpeedVal">7</span>
+      </div>
     </div>
 
     <div class="sp-sec">
@@ -348,19 +370,27 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 'use strict';
 
 // ═══════════════════════════════════════════════
-//  JSONBIN CONFIG
+//  CONFIG
 // ═══════════════════════════════════════════════
 const PROFILES_API = '/.netlify/functions/profiles';
 const USE_JSONBIN  = true;
 
-// ═══════════════════════════════════════════════
-//  FONT CONFIG
-// ═══════════════════════════════════════════════
 const GLYPH_PATHS = {
   normal: { dir: 'glyphs/',       prefix: '',       scale: 0.10 },
   bold:   { dir: 'glyphs_bold/',  prefix: 'bold_',  scale: 0.10 },
   messy:  { dir: 'glyphs_messy/', prefix: 'messy_', scale: 0.20 },
 };
+
+// Characters whose glyph images are 256px instead of the font's native size.
+// For normal/bold (native 512px), these need 2× scale.
+// For messy (native 256px), no correction needed.
+// key = glyph key string, value = scale multiplier relative to font's native
+const GLYPH_SCALE_OVERRIDES = {
+  '*': { normal: 2.0, bold: 2.0, messy: 1.0 }, // star 256px in all fonts
+  '(': { normal: 1.0, bold: 1.0, messy: 1.0 }, // parens same size as other glyphs
+  ')': { normal: 1.0, bold: 1.0, messy: 1.0 },
+};
+
 const VARIANTS       = 3;
 const LETTER_SPACING = -27;
 const SPACE_WIDTH    = 10;
@@ -369,13 +399,9 @@ const FLICKER_MS     = 180;
 const HANDLE         = 14;
 const DEL_HANDLE     = 14;
 
-// ═══════════════════════════════════════════════
-//  STICKER CONFIG
-// ═══════════════════════════════════════════════
 const STICKER_DIR      = 'glyphs_stickers/';
 const STICKER_VARIANTS = 3;
 const STICKER_BASE_PX  = 80;
-const STICKER_REGISTRY = { star: { label: '⭐ Star', prefix: 'star' } };
 
 // ═══════════════════════════════════════════════
 //  ELEMENTS
@@ -405,6 +431,9 @@ const shadowValue    = document.getElementById('shadowValue');
 const fontStyle      = document.getElementById('fontStyle');
 const textAlign      = document.getElementById('textAlign');
 const textColor      = document.getElementById('textColor');
+const typewriterEnabled = document.getElementById('typewriterEnabled');
+const twSpeed        = document.getElementById('twSpeed');
+const twSpeedVal     = document.getElementById('twSpeedVal');
 const qualityPreset  = document.getElementById('qualityPreset');
 const fpsSelect      = document.getElementById('fpsSelect');
 const encOverlay     = document.getElementById('encOverlay');
@@ -429,7 +458,7 @@ const ppList         = document.getElementById('ppList');
 const ppStatus       = document.getElementById('ppStatus');
 
 // ═══════════════════════════════════════════════
-//  SETTINGS PANEL
+//  SETTINGS WIRING
 // ═══════════════════════════════════════════════
 settingsToggle.addEventListener('click', () => {
   const open = settingsPanel.classList.toggle('open');
@@ -444,11 +473,14 @@ shadowOpacity.addEventListener('input', () => {
 });
 fontStyle.addEventListener('change', () => {
   Object.keys(glyphs).forEach(k => delete glyphs[k]);
-  rebuildFlicker();
+  Object.keys(tintCache).forEach(k => delete tintCache[k]);
+});
+twSpeed?.addEventListener('input', () => {
+  if (twSpeedVal) twSpeedVal.textContent = twSpeed.value;
 });
 
 // ═══════════════════════════════════════════════
-//  SIMPLIFY TEXT
+//  SIMPLIFY
 // ═══════════════════════════════════════════════
 simplifyBtn.addEventListener('click', () => {
   lta.value = lta.value
@@ -458,18 +490,17 @@ simplifyBtn.addEventListener('click', () => {
       (ch >= 'a' && ch <= 'z') || ch === ' ' || ch === '*' || ch === '(' || ch === ')'
     ).join('').replace(/ {2,}/g, ' ').trim())
     .join('\n');
-  renderEditArea(); // refresh dropdowns
+  renderEditArea();
 });
 
 // ═══════════════════════════════════════════════
 //  CUSTOM AUDIO
 // ═══════════════════════════════════════════════
 let customAudioBuffer = null;
-
 aInput.addEventListener('change', async () => {
   const f = aInput.files[0]; if (!f) return;
-  const ab   = await f.arrayBuffer();
-  const tmp  = new AudioContext();
+  const ab = await f.arrayBuffer();
+  const tmp = new AudioContext();
   customAudioBuffer = await tmp.decodeAudioData(ab);
   await tmp.close();
   statusEl.textContent = `Audio: ${f.name}`;
@@ -480,109 +511,73 @@ aClear.addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════
-//  STATE — glyphs / flicker
+//  STATE
 // ═══════════════════════════════════════════════
 const glyphs    = {};
-let flicker     = [], lastFlick = 0;
+const tintCache = {};
+let flickerMaps = {};
+let lastFlick   = 0;
 let curLine     = 0;
-
-// lineBoxAssign[i] = boxId for line i (default 0 = box 1)
 let lineBoxAssign = [];
 
-// ═══════════════════════════════════════════════
-//  TEXT BOXES
-//  Each box: { id, x, y, bw, bh, scale }
-//  id is 0-based index, label is id+1
-// ═══════════════════════════════════════════════
-let textBoxes = [makeBox(0)]; // always at least one
+let textBoxes = [makeBox(0)];
 
 function makeBox(id) {
-  // Default position: lower third, staggered slightly per id
   return {
     id,
-    x: pc.width  ? pc.width  * 0.04 : 20,
-    y: pc.height ? pc.height * (0.60 + id * 0.06) : 300 + id * 40,
+    x:  pc.width  ? pc.width  * 0.04 : 20,
+    y:  pc.height ? pc.height * (0.60 + id * 0.07) : 300 + id * 50,
     bw: pc.width  ? pc.width  * 0.92 : 300,
     bh: 80,
     scale: 1.0,
   };
 }
-
 function addTextBox() {
   const id = textBoxes.length;
   const box = makeBox(id);
-  // Once canvas is sized, set proper defaults
-  if (pc.width) {
-    box.x  = pc.width  * 0.04;
-    box.y  = pc.height * 0.55 + id * (pc.height * 0.07);
-    box.bw = pc.width  * 0.92;
-  }
   textBoxes.push(box);
   renderEditArea();
 }
-
 function clearTextBoxes() {
-  // Reset all line assignments to box 0
   lineBoxAssign = lineBoxAssign.map(() => 0);
-  textBoxes = [textBoxes[0]]; // keep only box 1
+  textBoxes = [textBoxes[0]];
   renderEditArea();
 }
-
 function deleteTextBox(id) {
-  if (textBoxes.length <= 1) return; // always keep at least one
+  if (textBoxes.length <= 1) return;
   textBoxes = textBoxes.filter(b => b.id !== id);
-  // Re-index remaining boxes
   textBoxes.forEach((b, i) => { b.id = i; });
-  // Reset any assignments to deleted box back to 0
-  lineBoxAssign = lineBoxAssign.map(a => (a >= textBoxes.length ? 0 : a));
+  lineBoxAssign = lineBoxAssign.map(a => a >= textBoxes.length ? 0 : a);
   renderEditArea();
 }
-
 addBoxBtn?.addEventListener('click', addTextBox);
 clearBoxesBtn?.addEventListener('click', clearTextBoxes);
 
-// ═══════════════════════════════════════════════
-//  STICKERS
-// ═══════════════════════════════════════════════
 const stickers = [];
 const stickerImgCache = {};
-
 function loadStickerImgs(name) {
   if (stickerImgCache[name]) return stickerImgCache[name];
   const imgs = [];
   for (let i = 1; i <= STICKER_VARIANTS; i++) {
-    const img = new Image();
-    img.src = `${STICKER_DIR}${name}_${i}.png`;
-    imgs.push(img);
+    const img = new Image(); img.src = `${STICKER_DIR}${name}_${i}.png`; imgs.push(img);
   }
   stickerImgCache[name] = imgs;
   return imgs;
 }
-
 function addSticker(name) {
   stickers.push({
     name, imgs: loadStickerImgs(name),
     x: pc.width * 0.5 - 40, y: pc.height * 0.5 - 40,
-    scale: 1.0, flickerIdx: 0, lastFlick: 0,
+    scale: 1.0, flickerIdx: 0,
   });
 }
-
 document.querySelectorAll('.sticker-btn').forEach(btn => {
   btn.addEventListener('click', () => addSticker(btn.dataset.sticker));
 });
 clearStickersBtn?.addEventListener('click', () => { stickers.length = 0; });
 
-// ═══════════════════════════════════════════════
-//  DRAG STATE
-// ═══════════════════════════════════════════════
 let drag = null;
-// { target: boxObj|stickerObj|'text', mode: 'move'|'resize'|'del',
-//   startMX, startMY, startX, startY, startScale, startBW }
-
-// ═══════════════════════════════════════════════
-//  RECORDING STATE
-// ═══════════════════════════════════════════════
-let recState = 'idle'; // 'idle'|'recording'|'paused'
+let recState = 'idle';
 let sharedAudioCtx = null, sharedAudioSource = null;
 let videoEncoder = null, audioEncoder = null, muxer = null, audioProcessor = null;
 let mrec = null, mchunks = [];
@@ -625,7 +620,6 @@ vid.addEventListener('loadedmetadata', () => {
   timeDur.textContent = fmtTime(vid.duration);
   scrubber.disabled = false;
   syncCanvas();
-  // Re-init all textboxes to proper positions
   textBoxes.forEach((b, i) => {
     b.x = pc.width * 0.04; b.bw = pc.width * 0.92;
     b.y = pc.height * (0.60 + i * 0.07); b.scale = 1.0;
@@ -673,29 +667,49 @@ function updateUI() {
 // ═══════════════════════════════════════════════
 //  GLYPHS
 // ═══════════════════════════════════════════════
-function gKey(c) { return (c >= 'A' && c <= 'Z') ? 'cap' + c : c; }
+function gKey(c) {
+  if (c >= 'A' && c <= 'Z') return 'cap' + c;
+  // Map special characters to their file key names
+  if (c === '(') return '(';
+  if (c === ')') return ')';
+  if (c === '*') return '*';
+  return c;
+}
+
 function loadG(k) {
   if (glyphs[k]) return;
   glyphs[k] = [];
   const style = fontStyle?.value ?? 'bold';
   const { dir, prefix } = GLYPH_PATHS[style] ?? GLYPH_PATHS.bold;
+  // Map glyph key to filename-safe string
+  const fileKey = k === '(' ? '(' : k === ')' ? ')' : k === '*' ? '*' : k;
   for (let i = 1; i <= VARIANTS; i++) {
-    const img = new Image(); img.src = `${dir}${prefix}${k}_${i}.png`; glyphs[k].push(img);
+    const img = new Image();
+    img.src = `${dir}${prefix}${fileKey}_${i}.png`;
+    glyphs[k].push(img);
   }
 }
+
 function getG(c, vi) {
   const k = gKey(c); if (!glyphs[k]) loadG(k);
   const g = glyphs[k]?.[vi];
   return (g && g.complete && g.naturalWidth > 0) ? g : null;
 }
+
 function getFontScale() {
   return (GLYPH_PATHS[fontStyle?.value ?? 'bold'] ?? GLYPH_PATHS.bold).scale;
+}
+
+// Per-character scale multiplier (for chars whose PNG is a different size than the font's native)
+function getCharScaleMult(c) {
+  const k = gKey(c);
+  const style = fontStyle?.value ?? 'bold';
+  return GLYPH_SCALE_OVERRIDES[k]?.[style] ?? 1.0;
 }
 
 // ═══════════════════════════════════════════════
 //  TINT CACHE
 // ═══════════════════════════════════════════════
-const tintCache = {};
 function getTintedGlyph(g, color, gw, gh) {
   const w = Math.ceil(gw), h = Math.ceil(gh);
   const key = `${g.src}_${color}_${w}_${h}`;
@@ -713,27 +727,18 @@ function getTintedGlyph(g, color, gw, gh) {
 textColor?.addEventListener('input', () => { Object.keys(tintCache).forEach(k => delete tintCache[k]); });
 
 // ═══════════════════════════════════════════════
-//  FLICKER
-// ═══════════════════════════════════════════════
-function rebuildFlicker() {
-  const t = getActiveLines().map(al => al.text).join('');
-  // Build per-active-line flicker maps
-  flickerMaps = {};
-  for (const { text, boxId } of getActiveLines()) {
-    flickerMaps[boxId] = [...text].map(c => c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
-  }
-}
-let flickerMaps = {};
-
-// ═══════════════════════════════════════════════
 //  LAYOUT
 // ═══════════════════════════════════════════════
-function layoutLines(text, gs, ls, sw, maxW) {
+function layoutLines(text, baseGs, ls, sw, maxW) {
+  // baseGs is the font's base glyph scale — individual chars may have overrides
   const rows = [];
   let rowWords = [], rowW = 0;
   for (const word of text.split(' ')) {
     let wordW = 0;
-    for (const ch of word) { const g = getG(ch, 0); if (g) wordW += g.width * gs + ls; }
+    for (const ch of word) {
+      const g = getG(ch, 0);
+      if (g) wordW += g.width * baseGs * getCharScaleMult(ch) + ls;
+    }
     const wps = wordW + sw * 2;
     if (rowWords.length > 0 && rowW + wordW > maxW) {
       rows.push({ words: rowWords, width: rowW - sw * 2 });
@@ -745,47 +750,56 @@ function layoutLines(text, gs, ls, sw, maxW) {
 }
 
 // ═══════════════════════════════════════════════
-//  TYPEWRITER STATE
+//  TYPEWRITER
+//  Speed slider 1-10.
+//  Typewriter now ticks every RAF frame (~60fps).
+//  Speed 1  → 1 char per 8 frames  (~133ms/char, very slow)
+//  Speed 5  → 1 char per 3 frames  (~50ms/char, medium)
+//  Speed 10 → Infinity (instant, all chars at once)
 // ═══════════════════════════════════════════════
-// Per-box typewriter char counts
-let typewriterState = {}; // boxId → { chars, total }
-let typewriterTimer = null;
+let typewriterState = {}; // boxId → { chars, total, framesSince }
 
 function startTypewriterForBox(boxId, text) {
-  const twEnabled = document.getElementById('typewriterEnabled');
-  if (!twEnabled?.checked) { typewriterState[boxId] = { chars: Infinity, total: 0 }; return; }
+  if (!typewriterEnabled?.checked) { typewriterState[boxId] = { chars: Infinity, total: 0, framesSince: 0 }; return; }
   const total = text.replace(/ /g, '').length;
-  typewriterState[boxId] = { chars: 0, total };
+  typewriterState[boxId] = { chars: 0, total, framesSince: 0 };
 }
 
 function tickTypewriters() {
-  let anyRunning = false;
-  for (const [boxId, state] of Object.entries(typewriterState)) {
-    if (state.chars < state.total) {
+  const v = Number(twSpeed?.value ?? 7);
+  if (v >= 10) {
+    // Instant — reveal all
+    for (const state of Object.values(typewriterState)) state.chars = Infinity;
+    return;
+  }
+  // Frames to wait between each char reveal: speed 1 = 8 frames, speed 9 = 1 frame
+  const framesPerChar = Math.max(1, Math.round(9 - (v - 1)));
+  for (const state of Object.values(typewriterState)) {
+    if (state.chars >= state.total) continue;
+    state.framesSince = (state.framesSince ?? 0) + 1;
+    if (state.framesSince >= framesPerChar) {
       state.chars++;
-      anyRunning = true;
+      state.framesSince = 0;
     }
   }
-  return anyRunning;
 }
 
 // ═══════════════════════════════════════════════
 //  ACTIVE LINES
-//  Returns array of { text, boxId, lineIdx } for
-//  the current line and any simultaneously active lines
-//  (only one line per box can be active at once)
 // ═══════════════════════════════════════════════
+function readLinesFromTextarea() {
+  return lta.value.split('\n').map(l => l.trimEnd());
+}
+
 function getActiveLines() {
-  const lines = readLinesFromTextarea();
-  if (!lines.length) return [];
-  // Find the active box set: current line + scan backward for each other box
-  const result = [];
-  const seenBoxes = new Set();
+  const ls = readLinesFromTextarea();
+  if (!ls.length) return [];
+  const result = [], seenBoxes = new Set();
   for (let i = curLine; i >= 0; i--) {
     const boxId = lineBoxAssign[i] ?? 0;
     if (!seenBoxes.has(boxId)) {
       seenBoxes.add(boxId);
-      if (lines[i]?.trim()) result.push({ text: lines[i], boxId, lineIdx: i });
+      if (ls[i]?.trim()) result.push({ text: ls[i], boxId, lineIdx: i });
     }
     if (seenBoxes.size === textBoxes.length) break;
   }
@@ -793,27 +807,27 @@ function getActiveLines() {
 }
 
 // ═══════════════════════════════════════════════
-//  DRAW GLYPHS  into a specific box
+//  DRAW GLYPHS
 // ═══════════════════════════════════════════════
 function drawGlyphs(ctx2, text, box, sc, flickerArr, twChars) {
   const sx = box.x * sc, sy = box.y * sc, maxW = box.bw * sc;
   const scale = box.scale;
   const fontSc = getFontScale();
-  const gs = fontSc * sc * scale;
+  const baseGs = fontSc * sc * scale;
   const ls = LETTER_SPACING * sc * scale;
   const sw = SPACE_WIDTH     * sc * scale;
   const lh = LINE_HEIGHT     * sc * scale;
-  const rows = layoutLines(text, gs, ls, sw, maxW);
+  const rows = layoutLines(text, baseGs, ls, sw, maxW);
 
   if (shadowEnabled?.checked && text) {
     const alpha  = shadowOpacity ? Number(shadowOpacity.value) / 100 : 0.10;
     const totalH = rows.length * lh;
     const padY   = 15 * sc * scale;
     const grad   = ctx2.createLinearGradient(0, sy - padY, 0, sy + totalH + padY);
-    grad.addColorStop(0,    'rgba(0,0,0,0)');
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
     grad.addColorStop(0.25, `rgba(0,0,0,${alpha})`);
     grad.addColorStop(0.75, `rgba(0,0,0,${alpha})`);
-    grad.addColorStop(1,    'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx2.save();
     ctx2.fillStyle = grad;
     ctx2.fillRect(0, sy - padY, ctx2.canvas.width, totalH + padY * 2);
@@ -822,7 +836,7 @@ function drawGlyphs(ctx2, text, box, sc, flickerArr, twChars) {
 
   const color = textColor?.value ?? '#ffffff';
   const tint  = color !== '#ffffff' && color !== '#FFFFFF';
-  let ci = 0, visibleNonSpace = 0, y = sy;
+  let ci = 0, visNonSpace = 0, y = sy;
 
   for (const row of rows) {
     const align = textAlign?.value ?? 'center';
@@ -830,14 +844,16 @@ function drawGlyphs(ctx2, text, box, sc, flickerArr, twChars) {
           : align === 'right'  ? sx + maxW - row.width : sx;
     for (const word of row.words) {
       for (const ch of word) {
-        const vi = flickerArr ? (flickerArr[ci] ?? 0) : 0;
+        const vi = flickerArr?.[ci] ?? 0;
         const g = getG(ch, vi);
         if (g) {
-          const gw = g.width * gs, gh = g.height * gs;
-          if (visibleNonSpace < twChars) {
+          const csm = getCharScaleMult(ch);
+          const gw = g.width  * baseGs * csm;
+          const gh = g.height * baseGs * csm;
+          if (visNonSpace < twChars) {
             ctx2.drawImage(tint ? getTintedGlyph(g, color, gw, gh) : g, x, y, gw, gh);
           }
-          visibleNonSpace++;
+          visNonSpace++;
           x += gw + ls;
         }
         ci++;
@@ -861,14 +877,12 @@ function drawStickers(ctx2, sc) {
 }
 
 // ═══════════════════════════════════════════════
-//  DRAW TEXT BOX UI  (preview canvas only)
+//  TEXT BOX UI (preview only)
 // ═══════════════════════════════════════════════
 function drawTextBoxUI(box) {
   const fontSc = getFontScale();
   const gs = fontSc * box.scale, ls = LETTER_SPACING * box.scale;
   const sw = SPACE_WIDTH * box.scale, lh = LINE_HEIGHT * box.scale;
-
-  // Find text for this box
   const active = getActiveLines().find(al => al.boxId === box.id);
   const text = active?.text ?? '';
   box.bh = text ? layoutLines(text, gs, ls, sw, box.bw).length * lh + lh * 0.5 : lh * 1.5;
@@ -879,35 +893,25 @@ function drawTextBoxUI(box) {
   pctx.lineWidth = 1.5;
   pctx.strokeRect(box.x, box.y, box.bw, box.bh);
   pctx.setLineDash([]);
-
-  // Resize handle — bottom-right
   pctx.fillStyle = '#ff5722';
   pctx.fillRect(box.x + box.bw - HANDLE, box.y + box.bh - HANDLE, HANDLE, HANDLE);
   pctx.fillStyle = '#fff';
   pctx.font = `bold ${HANDLE-2}px system-ui`;
   pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
   pctx.fillText('⤡', box.x + box.bw - HANDLE/2, box.y + box.bh - HANDLE/2);
-
-  // Delete × — top-left (only if more than one box)
   if (textBoxes.length > 1) {
     pctx.fillStyle = '#e53935';
     pctx.fillRect(box.x, box.y, DEL_HANDLE, DEL_HANDLE);
     pctx.fillStyle = '#fff';
     pctx.fillText('×', box.x + DEL_HANDLE/2, box.y + DEL_HANDLE/2);
   }
-
-  // Label — top-centre
   pctx.textAlign = 'center'; pctx.textBaseline = 'alphabetic';
   pctx.font = `bold ${HANDLE}px system-ui`;
   pctx.fillStyle = 'rgba(255,255,255,0.5)';
   pctx.fillText(`Box ${box.id + 1}`, box.x + box.bw/2, box.y - 3);
-
   pctx.restore();
 }
 
-// ═══════════════════════════════════════════════
-//  DRAW STICKER BOX UI
-// ═══════════════════════════════════════════════
 function drawStickerBox(s) {
   const sz = STICKER_BASE_PX * s.scale;
   pctx.save();
@@ -948,8 +952,8 @@ function drawSafeZoneOverlay(topFrac, bottomFrac, rightFrac, label, color) {
   pctx.strokeRect(0, H * topFrac, W * (1 - rightFrac), H * (1 - topFrac - bottomFrac));
   pctx.restore();
 }
-function drawTikTokOverlay()  { drawSafeZoneOverlay(0.07, 0.22, 0.14, 'TikTok',    'rgba(254,44,85,0.28)'); }
-function drawInstaOverlay()   { drawSafeZoneOverlay(0.06, 0.20, 0.13, 'Instagram', 'rgba(131,58,180,0.28)'); }
+function drawTikTokOverlay() { drawSafeZoneOverlay(0.07, 0.22, 0.14, 'TikTok',    'rgba(254,44,85,0.28)'); }
+function drawInstaOverlay()  { drawSafeZoneOverlay(0.06, 0.20, 0.13, 'Instagram', 'rgba(131,58,180,0.28)'); }
 
 // ═══════════════════════════════════════════════
 //  RENDER LOOP
@@ -957,33 +961,25 @@ function drawInstaOverlay()   { drawSafeZoneOverlay(0.06, 0.20, 0.13, 'Instagram
 function renderLoop(ts) {
   requestAnimationFrame(renderLoop);
 
-  // Global flicker tick
+  // Typewriter ticks every frame (decoupled from flicker)
+  // so speed feels responsive regardless of FLICKER_MS
+  tickTypewriters();
+
   if (ts - lastFlick > FLICKER_MS) {
-    // Rebuild per-box flicker maps
     for (const al of getActiveLines()) {
       flickerMaps[al.boxId] = [...al.text].map(c =>
         c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
     }
-    // Sticker flicker
-    for (const s of stickers) { s.flickerIdx = Math.floor(Math.random() * STICKER_VARIANTS); }
-    // Typewriter tick
-    tickTypewriters();
+    for (const s of stickers) s.flickerIdx = Math.floor(Math.random() * STICKER_VARIANTS);
     lastFlick = ts;
   }
-
   pctx.clearRect(0, 0, pc.width, pc.height);
-
-  // Draw all active text boxes
   for (const al of getActiveLines()) {
     const box = textBoxes[al.boxId] ?? textBoxes[0];
-    const tw = typewriterState[al.boxId];
-    const twChars = tw ? tw.chars : Infinity;
-    drawGlyphs(pctx, al.text, box, 1, flickerMaps[al.boxId], twChars);
+    const tw  = typewriterState[al.boxId];
+    drawGlyphs(pctx, al.text, box, 1, flickerMaps[al.boxId], tw ? tw.chars : Infinity);
   }
-
   drawStickers(pctx, 1);
-
-  // UI overlays (preview only)
   for (const box of textBoxes) drawTextBoxUI(box);
   for (const s of stickers) drawStickerBox(s);
   if (overlayTikTok?.checked) drawTikTokOverlay();
@@ -998,75 +994,56 @@ function cPt(cx, cy) { const r = pc.getBoundingClientRect(); return { x: cx-r.le
 function inHandle(rx, ry, x, y, w, h) { return rx>=x+w-HANDLE&&rx<=x+w&&ry>=y+h-HANDLE&&ry<=y+h; }
 function inRect(rx, ry, x, y, w, h)   { return rx>=x&&rx<=x+w&&ry>=y&&ry<=y+h; }
 
-// ═══════════════════════════════════════════════
-//  DRAG & RESIZE
-// ═══════════════════════════════════════════════
 pc.addEventListener('mousedown', e => {
   e.preventDefault();
   const { x, y } = cPt(e.clientX, e.clientY);
-
-  // Stickers (top-most)
-  for (let i = stickers.length - 1; i >= 0; i--) {
+  for (let i = stickers.length-1; i>=0; i--) {
     const s = stickers[i]; const sz = STICKER_BASE_PX * s.scale;
-    if (x >= s.x && x <= s.x+DEL_HANDLE && y >= s.y && y <= s.y+DEL_HANDLE) { stickers.splice(i,1); return; }
+    if (x>=s.x&&x<=s.x+DEL_HANDLE&&y>=s.y&&y<=s.y+DEL_HANDLE) { stickers.splice(i,1); return; }
     if (inHandle(x,y,s.x,s.y,sz,sz)) { drag={target:s,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:s.scale}; return; }
     if (inRect(x,y,s.x,s.y,sz,sz))   { drag={target:s,mode:'move',  startMX:e.clientX,startMY:e.clientY,startX:s.x,startY:s.y}; return; }
   }
-
-  // Text boxes (reverse order = last added on top)
-  for (let i = textBoxes.length - 1; i >= 0; i--) {
-    const box = textBoxes[i];
-    const { x: bx, y: by, bw, bh } = box;
-    // Delete × (top-left) — only if more than one box
-    if (textBoxes.length > 1 && x >= bx && x <= bx+DEL_HANDLE && y >= by && y <= by+DEL_HANDLE) {
-      deleteTextBox(box.id); return;
-    }
-    if (inHandle(x,y,bx,by,bw,bh)) { drag={target:box,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:box.scale,startBW:bw}; return; }
+  for (let i = textBoxes.length-1; i>=0; i--) {
+    const box = textBoxes[i]; const { x: bx, y: by, bw, bh } = box;
+    if (textBoxes.length>1&&x>=bx&&x<=bx+DEL_HANDLE&&y>=by&&y<=by+DEL_HANDLE) { deleteTextBox(box.id); return; }
+    if (inHandle(x,y,bx,by,bw,bh)) { drag={target:box,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:box.scale}; return; }
     if (inRect(x,y,bx,by,bw,bh))   { drag={target:box,mode:'move',  startMX:e.clientX,startMY:e.clientY,startX:bx,startY:by}; return; }
   }
 });
-
 pc.addEventListener('touchstart', e => {
   const t = e.touches[0];
-  pc.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
-}, { passive: false });
-
+  pc.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY}));
+},{passive:false});
 window.addEventListener('mousemove', e => {
   if (!drag) return;
-  const dx = e.clientX - drag.startMX, dy = e.clientY - drag.startMY;
+  const dx = e.clientX-drag.startMX, dy = e.clientY-drag.startMY;
   const t = drag.target;
-  if (t === null || t === undefined) return;
-
   if (stickers.includes(t)) {
-    if (drag.mode === 'move')   { t.x = drag.startX + dx; t.y = drag.startY + dy; }
-    else { t.scale = Math.max(0.2, Math.min(8, drag.startScale + (dx+dy)/150)); }
+    if (drag.mode==='move') { t.x=drag.startX+dx; t.y=drag.startY+dy; }
+    else { t.scale=Math.max(0.2,Math.min(8,drag.startScale+(dx+dy)/150)); }
   } else {
-    // text box
-    if (drag.mode === 'move')   { t.x = drag.startX + dx; t.y = drag.startY + dy; }
-    else { t.scale = Math.max(0.3, Math.min(5, drag.startScale + (dx+dy)/200)); }
+    if (drag.mode==='move') { t.x=drag.startX+dx; t.y=drag.startY+dy; }
+    else { t.scale=Math.max(0.3,Math.min(5,drag.startScale+(dx+dy)/200)); }
   }
 });
-
 window.addEventListener('touchmove', e => {
   const t = e.touches[0];
-  window.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
-}, { passive: false });
-
-window.addEventListener('mouseup',  () => { drag = null; });
-window.addEventListener('touchend', () => { drag = null; });
-
+  window.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));
+},{passive:false});
+window.addEventListener('mouseup',  () => { drag=null; });
+window.addEventListener('touchend', () => { drag=null; });
 pc.addEventListener('mousemove', e => {
   if (drag) return;
-  const { x, y } = cPt(e.clientX, e.clientY);
+  const {x,y} = cPt(e.clientX,e.clientY);
   let cursor = 'default';
-  for (let i = stickers.length-1; i>=0; i--) {
-    const s = stickers[i]; const sz = STICKER_BASE_PX * s.scale;
+  for (let i=stickers.length-1;i>=0;i--) {
+    const s=stickers[i]; const sz=STICKER_BASE_PX*s.scale;
     if (inHandle(x,y,s.x,s.y,sz,sz)) { cursor='nwse-resize'; break; }
     if (inRect(x,y,s.x,s.y,sz,sz))   { cursor='grab'; break; }
   }
-  if (cursor === 'default') {
-    for (let i = textBoxes.length-1; i>=0; i--) {
-      const b = textBoxes[i];
+  if (cursor==='default') {
+    for (let i=textBoxes.length-1;i>=0;i--) {
+      const b=textBoxes[i];
       if (inHandle(x,y,b.x,b.y,b.bw,b.bh)) { cursor='nwse-resize'; break; }
       if (inRect(x,y,b.x,b.y,b.bw,b.bh))   { cursor='grab'; break; }
     }
@@ -1075,61 +1052,74 @@ pc.addEventListener('mousemove', e => {
 });
 
 // ═══════════════════════════════════════════════
-//  LYRICS — EDIT AREA  (renders textarea with box-assignment dropdowns)
+//  EDIT AREA — inline box-assign dropdowns
+//
+//  Instead of a separate panel, we overlay tiny selects
+//  positioned at the right of each line in the textarea.
+//  We compute each line's vertical offset using the textarea's
+//  scrollTop + lineHeight to position each select.
 // ═══════════════════════════════════════════════
-function readLinesFromTextarea() {
-  return lta.value.split('\n').map(l => l.trimEnd());
-}
-
 function renderEditArea() {
-  // Sync lineBoxAssign length to current lines
-  const lines = readLinesFromTextarea();
-  while (lineBoxAssign.length < lines.length) lineBoxAssign.push(0);
-  lineBoxAssign = lineBoxAssign.slice(0, lines.length);
+  const ls = readLinesFromTextarea();
+  while (lineBoxAssign.length < ls.length) lineBoxAssign.push(0);
+  lineBoxAssign = lineBoxAssign.slice(0, ls.length);
 
-  // We don't replace the textarea, but we manage a "box assign" area below it
-  let assignEl = document.getElementById('boxAssignArea');
-  if (!assignEl) {
-    assignEl = document.createElement('div');
-    assignEl.id = 'boxAssignArea';
-    assignEl.style.cssText = 'display:flex;flex-direction:column;gap:2px;max-height:120px;overflow-y:auto;flex-shrink:0';
-    lta.insertAdjacentElement('afterend', assignEl);
+  // Get or create the overlay container
+  let overlay = document.getElementById('boxAssignOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'boxAssignOverlay';
+    overlay.className = 'box-assign-overlay';
+    editArea.appendChild(overlay);
   }
-  assignEl.innerHTML = '';
 
+  // Only show when multiple boxes exist
   if (textBoxes.length <= 1) {
-    // No dropdowns needed with only one box
-    assignEl.style.display = 'none';
+    overlay.style.display = 'none';
+    lta.classList.remove('has-boxes');
     return;
   }
-  assignEl.style.display = 'flex';
+  overlay.style.display = 'flex';
+  lta.classList.add('has-boxes');
+  overlay.innerHTML = '';
 
-  lines.forEach((line, i) => {
-    if (!line.trim()) return; // skip empty lines
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0';
-    const label = document.createElement('span');
-    label.style.cssText = 'font-size:10px;color:#444;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-    label.textContent = `Line ${i+1}: ${line.slice(0,30)}${line.length>30?'…':''}`;
+  // Position overlay to align with textarea content area
+  // We use the textarea's computed line-height to space selects
+  const ltaRect   = lta.getBoundingClientRect();
+  const areaRect  = editArea.getBoundingClientRect();
+  const ltaTop    = ltaRect.top - areaRect.top;
+  const lineH     = 14 * 1.7; // font-size 14px * line-height 1.7
+
+  overlay.style.top  = (ltaTop + 10) + 'px'; // +10 = textarea padding-top
+  overlay.style.bottom = '';
+  overlay.style.height = (ltaRect.height - 20) + 'px';
+  overlay.style.overflowY = 'hidden';
+
+  ls.forEach((line, i) => {
     const sel = document.createElement('select');
-    sel.style.cssText = 'background:#1a1a1a;color:#aaa;border:1px solid #252525;border-radius:4px;padding:2px 4px;font-size:11px;flex-shrink:0';
+    sel.style.cssText = `
+      background:#1a1a1a;color:#777;border:1px solid #252525;
+      border-radius:3px;padding:1px 3px;font-size:10px;
+      height:${Math.round(lineH)}px;margin-bottom:0;
+      opacity:${line.trim() ? '0.9' : '0.3'};
+      cursor:pointer;
+    `;
     textBoxes.forEach(b => {
       const opt = document.createElement('option');
-      opt.value = b.id; opt.textContent = `Box ${b.id+1}`;
+      opt.value = b.id; opt.textContent = `B${b.id+1}`;
       if ((lineBoxAssign[i] ?? 0) === b.id) opt.selected = true;
       sel.appendChild(opt);
     });
     sel.addEventListener('change', () => { lineBoxAssign[i] = Number(sel.value); });
-    row.appendChild(label); row.appendChild(sel);
-    assignEl.appendChild(row);
+    overlay.appendChild(sel);
   });
 }
 
-// Re-render on textarea input
 lta.addEventListener('input', renderEditArea);
+lta.addEventListener('scroll', renderEditArea);
 
 // ═══════════════════════════════════════════════
-//  LYRICS — PERFORM LIST
+//  PERFORM LIST
 // ═══════════════════════════════════════════════
 let lines = [];
 
@@ -1138,7 +1128,7 @@ function renderPerformList() {
   lines.forEach((l, i) => {
     const d = document.createElement('div');
     const boxId = lineBoxAssign[i] ?? 0;
-    const boxLabel = textBoxes.length > 1 ? ` [Box ${boxId+1}]` : '';
+    const boxLabel = textBoxes.length > 1 ? ` [B${boxId+1}]` : '';
     d.textContent = (l || '(empty)') + boxLabel;
     d.className = 'lyric-line'
       + (i === curLine     ? ' active'  : '')
@@ -1152,13 +1142,11 @@ function renderPerformList() {
 function advanceLine() {
   if (curLine >= lines.length - 1) return;
   curLine++;
-  // Start typewriter for new active lines
   for (const al of getActiveLines()) {
     if (al.lineIdx === curLine) startTypewriterForBox(al.boxId, al.text);
   }
   renderPerformList();
 }
-
 document.addEventListener('keydown', e => {
   if (e.code === 'ShiftRight') { e.preventDefault(); advanceLine(); }
 });
@@ -1169,13 +1157,9 @@ document.addEventListener('keydown', e => {
 playBtn.addEventListener('click', () => {
   if (!vid.src) return;
   if (recState === 'paused') {
-    // Re-read lines so edits during pause take effect from curLine onward
     lines = readLinesFromTextarea();
     recState = 'recording';
-    updateUI();
-    renderPerformList();
-    // Resume video — audio context (if any) will resume automatically
-    // when vid.play() fires, since it's driven by captureStream
+    updateUI(); renderPerformList();
     vid.play().catch(() => {});
     statusEl.textContent = 'Recording resumed…';
     return;
@@ -1183,7 +1167,6 @@ playBtn.addEventListener('click', () => {
   if (recState === 'idle') {
     lines = readLinesFromTextarea();
     curLine = 0;
-    // Start typewriter for first line in each box
     typewriterState = {};
     for (const al of getActiveLines()) startTypewriterForBox(al.boxId, al.text);
     startExportCapture();
@@ -1192,7 +1175,6 @@ playBtn.addEventListener('click', () => {
 
 pauseBtn.addEventListener('click', () => {
   if (recState !== 'recording') return;
-  // Pause video first — this stops the captureStream audio track too
   vid.pause();
   recState = 'paused';
   updateUI();
@@ -1203,8 +1185,7 @@ resetBtn.addEventListener('click', async () => {
   await discardRecording();
   vid.pause(); vid.currentTime = 0;
   scrubber.value = 0; timeNow.textContent = '0:00';
-  curLine = 0; recState = 'idle';
-  typewriterState = {};
+  curLine = 0; recState = 'idle'; typewriterState = {};
   updateUI();
   statusEl.textContent = 'Reset — press Play to start fresh.';
 });
@@ -1224,12 +1205,17 @@ const compCtx    = compCanvas.getContext('2d');
 // ═══════════════════════════════════════════════
 //  START RECORDING
 //
-//  PAUSE FIX: instead of using RAF timestamps for frame pacing,
-//  we use vid.currentTime. Each RAF we check if the video has
-//  moved past the next expected frame time and encode if so.
-//  Pausing vid stops currentTime advancing → no frames encoded.
-//  Resuming vid continues from where it left off seamlessly.
-//  No recStartTime, no clock resets, no drift.
+//  Frame pacing is driven by vid.currentTime so pause is seamless.
+//
+//  PAUSE HICCUP FIX:
+//  The ScriptProcessor may fire 1-2 extra callbacks after vid.pause()
+//  because the Web Audio graph drains asynchronously. Those callbacks
+//  deliver silence and advance audioFrameCount incorrectly, creating a
+//  timestamp gap when audio resumes.
+//  Fix: track `audioEncodedUpTo` in seconds (video time). The
+//  ScriptProcessor callback checks if vid is actually playing before
+//  encoding, and aligns its timestamp to the video position rather
+//  than a free-running counter.
 // ═══════════════════════════════════════════════
 function startExportCapture() {
   if (recState !== 'idle') return;
@@ -1241,12 +1227,11 @@ function startExportCapture() {
   compCanvas.width  = vid.videoWidth;
   compCanvas.height = vid.videoHeight;
   const sx = vid.videoWidth  / pc.width;
-  const sy = vid.videoHeight / pc.height;
   const W  = vid.videoWidth, H = vid.videoHeight;
 
   if (typeof VideoEncoder === 'undefined' || typeof Mp4Muxer === 'undefined') {
     recState = 'recording'; updateUI(); renderPerformList();
-    startWebmFallback(sx, sy, W, H, EXPORT_FPS); vid.play(); return;
+    startWebmFallback(sx, W, H, EXPORT_FPS); vid.play(); return;
   }
 
   if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} }
@@ -1278,9 +1263,9 @@ function startExportCapture() {
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error:  e => console.error('VideoEncoder:', e),
   });
-  videoEncoder.configure({ codec: 'avc1.64002a', width: W, height: H, bitrate: BITRATE, framerate: EXPORT_FPS });
+  videoEncoder.configure({ codec:'avc1.64002a', width:W, height:H, bitrate:BITRATE, framerate:EXPORT_FPS });
 
-  let audioFrameCount = 0;
+  // audioEncodedFrames counter lives inside the ScriptProcessor closure
   let customL = null, customR = null;
 
   if (hasAudio && typeof AudioEncoder !== 'undefined') {
@@ -1288,27 +1273,36 @@ function startExportCapture() {
       output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
       error:  e => console.error('AudioEncoder:', e),
     });
-    audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: numChannels, bitrate: 192_000 });
+    audioEncoder.configure({ codec:'mp4a.40.2', sampleRate, numberOfChannels:numChannels, bitrate:192_000 });
 
     if (customAudioBuffer) {
       customL = customAudioBuffer.getChannelData(0);
       customR = customAudioBuffer.numberOfChannels > 1 ? customAudioBuffer.getChannelData(1) : customL;
     } else {
       audioProcessor = sharedAudioCtx.createScriptProcessor(4096, numChannels, numChannels);
+      // Sequential counter — only advances when we actually encode a frame.
+      // When vid.paused, we skip entirely so no silence frames sneak in and
+      // no timestamp gaps appear at resume. The counter stays frozen while
+      // paused and resumes exactly where it left off.
+      let audioEncodedFrames = 0;
       audioProcessor.onaudioprocess = ev => {
-        // captureStream audio track pauses when vid pauses, so this
-        // naturally stops receiving real audio. But guard anyway.
-        if (recState !== 'recording') return;
+        // Skip if not actively recording OR if video is paused/draining.
+        // The captureStream track delivers silence for 1-2 callbacks after
+        // vid.pause() — this gate prevents those from being encoded.
+        if (recState !== 'recording' || vid.paused) return;
+
         const left  = ev.inputBuffer.getChannelData(0);
         const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
-        const ts = Math.round((audioFrameCount * 4096 / sampleRate) * 1e6);
+        const ts    = Math.round((audioEncodedFrames * 4096 / sampleRate) * 1e6);
+
         const frame = new AudioData({
           format: 'f32-planar', sampleRate,
           numberOfFrames: left.length, numberOfChannels: numChannels,
-          timestamp: ts, data: new Float32Array([...left, ...right]),
+          timestamp: ts,
+          data: new Float32Array([...left, ...right]),
         });
         audioEncoder.encode(frame); frame.close();
-        audioFrameCount++;
+        audioEncodedFrames++;
       };
       sharedAudioSource.connect(audioProcessor);
       const sg = sharedAudioCtx.createGain(); sg.gain.value = 0;
@@ -1318,37 +1312,31 @@ function startExportCapture() {
 
   recState = 'recording'; updateUI(); renderPerformList();
   statusEl.textContent = 'Recording… Right Shift to advance.';
-
   sharedAudioCtx.resume().then(() => vid.play());
 
-  // ── Frame capture driven by vid.currentTime ──────────
-  // nextFrameTime: the video timestamp (seconds) of the next frame to encode
   let nextFrameTime = 0;
   let frameCount    = 0;
-  const frameDur    = 1e6 / EXPORT_FPS;  // microseconds
-  const frameStep   = 1 / EXPORT_FPS;    // seconds
+  const frameDur    = 1e6 / EXPORT_FPS;
+  const frameStep   = 1  / EXPORT_FPS;
 
   function captureFrame() {
-    if (recState === 'idle') return; // session ended
+    if (recState === 'idle') return;
     requestAnimationFrame(captureFrame);
-
-    // Only encode when video has actually advanced to the next frame time
-    // Pausing vid stops currentTime → no frames encoded → no stuttering
     if (vid.currentTime < nextFrameTime - 0.001) return;
 
-    // Custom audio — inject chunk for this frame
+    // Custom audio aligned to video frame time
     if (customL && audioEncoder) {
       const s = Math.floor(nextFrameTime * sampleRate);
       const len = Math.floor(sampleRate / EXPORT_FPS);
       const end = Math.min(s + len, customL.length);
       if (s < customL.length) {
-        const data = new Float32Array((end-s) * 2);
-        data.set(customL.subarray(s, end), 0);
-        data.set(customR.subarray(s, end), end-s);
+        const data = new Float32Array((end-s)*2);
+        data.set(customL.subarray(s,end), 0);
+        data.set(customR.subarray(s,end), end-s);
         const af = new AudioData({
-          format: 'f32-planar', sampleRate,
-          numberOfFrames: end-s, numberOfChannels: numChannels,
-          timestamp: Math.round(nextFrameTime * 1e6), data,
+          format:'f32-planar', sampleRate,
+          numberOfFrames:end-s, numberOfChannels:numChannels,
+          timestamp:Math.round(nextFrameTime*1e6), data,
         });
         audioEncoder.encode(af); af.close();
       }
@@ -1362,15 +1350,11 @@ function startExportCapture() {
     }
     drawStickers(compCtx, sx);
 
-    const frame = new VideoFrame(compCanvas, {
-      timestamp: frameCount * frameDur,
-      duration:  frameDur,
-    });
-    videoEncoder.encode(frame, { keyFrame: frameCount % Math.round(EXPORT_FPS * 2) === 0 });
+    const frame = new VideoFrame(compCanvas, { timestamp:frameCount*frameDur, duration:frameDur });
+    videoEncoder.encode(frame, { keyFrame: frameCount % Math.round(EXPORT_FPS*2) === 0 });
     frame.close();
     frameCount++;
     nextFrameTime += frameStep;
-
     if (vid.ended) stopExportCapture();
   }
   requestAnimationFrame(captureFrame);
@@ -1382,7 +1366,6 @@ function startExportCapture() {
 async function stopExportCapture() {
   if (recState === 'idle') return;
   recState = 'idle'; updateUI();
-
   if (videoEncoder) {
     encOverlay.classList.add('show');
     encLabel.textContent = 'Encoding…'; encFill.style.width = '15%';
@@ -1395,163 +1378,136 @@ async function stopExportCapture() {
     if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx = null; }
     sharedAudioSource = null;
     const { buffer } = muxer.target;
-    const blob = new Blob([buffer], { type: 'video/mp4' });
+    const blob = new Blob([buffer], { type:'video/mp4' });
     const url  = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'lyrics_overlay.mp4'; a.click();
+    a.href=url; a.download='lyrics_overlay.mp4'; a.click();
     URL.revokeObjectURL(url);
-    encFill.style.width = '100%';
-    encLabel.textContent = 'Done! ✓';
+    encFill.style.width = '100%'; encLabel.textContent = 'Done! ✓';
     statusEl.textContent = 'MP4 saved! Reset to record again.';
     setTimeout(() => encOverlay.classList.remove('show'), 1500);
-    videoEncoder = null; audioEncoder = null; muxer = null;
-  } else {
-    stopWebmFallback();
-  }
+    videoEncoder=null; audioEncoder=null; muxer=null;
+  } else { stopWebmFallback(); }
 }
 
-// ═══════════════════════════════════════════════
-//  DISCARD
-// ═══════════════════════════════════════════════
 async function discardRecording() {
   recState = 'idle';
-  if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e) {} audioProcessor = null; }
-  if (videoEncoder)   { try { videoEncoder.close();  } catch(e) {} videoEncoder = null; }
-  if (audioEncoder)   { try { audioEncoder.close();  } catch(e) {} audioEncoder = null; }
-  muxer = null;
-  if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx = null; }
-  sharedAudioSource = null;
-  if (mrec) { try { mrec.stop(); } catch(e) {} mrec = null; mchunks = []; }
+  if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e) {} audioProcessor=null; }
+  if (videoEncoder)   { try { videoEncoder.close();  } catch(e) {} videoEncoder=null; }
+  if (audioEncoder)   { try { audioEncoder.close();  } catch(e) {} audioEncoder=null; }
+  muxer=null;
+  if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx=null; }
+  sharedAudioSource=null;
+  if (mrec) { try { mrec.stop(); } catch(e) {} mrec=null; mchunks=[]; }
 }
 
-// ═══════════════════════════════════════════════
-//  WEBM FALLBACK
-// ═══════════════════════════════════════════════
-function startWebmFallback(sx, sy, W, H, fps) {
+function startWebmFallback(sx, W, H, fps) {
   const vidStream = vid.captureStream?.() ?? vid.mozCaptureStream?.();
   const tracks    = vidStream?.getAudioTracks() ?? [];
   const stream    = compCanvas.captureStream(fps);
   tracks.forEach(t => stream.addTrack(t));
-  const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm'].find(m => MediaRecorder.isTypeSupported(m)) ?? '';
-  mrec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+  const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m)) ?? '';
+  mrec = new MediaRecorder(stream, mime?{mimeType:mime}:{});
   mchunks = [];
-  mrec.ondataavailable = e => { if (e.data.size > 0) mchunks.push(e.data); };
+  mrec.ondataavailable = e => { if (e.data.size>0) mchunks.push(e.data); };
   mrec.onstop = () => {
-    const b = new Blob(mchunks, { type: 'video/webm' });
-    const u = URL.createObjectURL(b);
-    const a = document.createElement('a'); a.href=u; a.download='lyrics_overlay.webm'; a.click();
+    const b=new Blob(mchunks,{type:'video/webm'});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement('a'); a.href=u; a.download='lyrics_overlay.webm'; a.click();
     URL.revokeObjectURL(u);
-    statusEl.textContent = 'Saved WebM. Convert at handbrake.fr for MP4.';
-    mrec = null; mchunks = [];
+    statusEl.textContent='Saved WebM. Convert at handbrake.fr for MP4.';
+    mrec=null; mchunks=[];
   };
   mrec.start(100);
-  let nextT = 0;
+  let nextT=0;
   function compLoop() {
-    if (recState === 'idle') return;
+    if (recState==='idle') return;
     requestAnimationFrame(compLoop);
-    if (recState === 'paused') return;
-    if (vid.currentTime < nextT - 0.001) return;
-    compCtx.drawImage(vid, 0, 0, W, H);
+    if (vid.currentTime < nextT-0.001) return;
+    compCtx.drawImage(vid,0,0,W,H);
     for (const al of getActiveLines()) {
-      const box = textBoxes[al.boxId] ?? textBoxes[0];
-      drawGlyphs(compCtx, al.text, box, sx, flickerMaps[al.boxId], Infinity);
+      const box=textBoxes[al.boxId]??textBoxes[0];
+      drawGlyphs(compCtx,al.text,box,sx,flickerMaps[al.boxId],Infinity);
     }
-    drawStickers(compCtx, sx);
-    nextT += 1/fps;
+    drawStickers(compCtx,sx);
+    nextT+=1/fps;
   }
   requestAnimationFrame(compLoop);
 }
 function stopWebmFallback() {
   if (!mrec) return;
   mrec.requestData();
-  setTimeout(() => { try { mrec.stop(); } catch(e){} }, 150);
+  setTimeout(()=>{ try{mrec.stop();}catch(e){} },150);
 }
 
 // ═══════════════════════════════════════════════
 //  LYRICS PROFILES
 // ═══════════════════════════════════════════════
-function jsonbinHeaders() {
-  return { 'Content-Type': 'application/json', 'X-Master-Key': '', 'X-Bin-Versioning': 'false' };
-}
-
 async function fetchProfiles() {
   if (!USE_JSONBIN) {
-    try { return JSON.parse(localStorage.getItem('lyricProfiles') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('lyricProfiles')||'[]'); } catch { return []; }
   }
   try {
     const res = await fetch(PROFILES_API);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch (e) { console.error('profiles fetch:', e); return null; }
+  } catch(e) { console.error('profiles fetch:',e); return null; }
 }
-
 async function saveProfiles(profiles) {
-  if (!USE_JSONBIN) { localStorage.setItem('lyricProfiles', JSON.stringify(profiles)); return true; }
+  if (!USE_JSONBIN) { localStorage.setItem('lyricProfiles',JSON.stringify(profiles)); return true; }
   try {
-    const res = await fetch(PROFILES_API, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profiles),
-    });
+    const res = await fetch(PROFILES_API,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(profiles)});
     return res.ok;
-  } catch (e) { console.error('profiles save:', e); return false; }
+  } catch(e) { return false; }
 }
-
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderProfileList(profiles) {
-  ppList.innerHTML = '';
-  if (!profiles?.length) { ppList.innerHTML = '<div class="pp-empty">No saved lyrics yet</div>'; return; }
+  ppList.innerHTML='';
+  if (!profiles?.length) { ppList.innerHTML='<div class="pp-empty">No saved lyrics yet</div>'; return; }
   for (const p of [...profiles].reverse()) {
-    const item = document.createElement('div');
-    item.className = 'pp-item';
-    const lc = (p.lyrics.match(/\n/g)||[]).length + 1;
-    item.innerHTML = `
-      <div class="pp-item-name">${escHtml(p.name)}</div>
-      <div class="pp-item-lines">${lc} line${lc!==1?'s':''}</div>
-      <button class="pp-item-load" data-id="${p.id}">Load</button>
-      <button class="pp-item-del" data-id="${p.id}" title="Delete">×</button>`;
-    item.querySelector('.pp-item-load').addEventListener('click', () => {
-      lta.value = p.lyrics; ppStatus.textContent = `Loaded "${p.name}"`; renderEditArea(); closeProfilePanel();
+    const item=document.createElement('div'); item.className='pp-item';
+    const lc=(p.lyrics.match(/\n/g)||[]).length+1;
+    item.innerHTML=`<div class="pp-item-name">${escHtml(p.name)}</div><div class="pp-item-lines">${lc} line${lc!==1?'s':''}</div><button class="pp-item-load" data-id="${p.id}">Load</button><button class="pp-item-del" data-id="${p.id}" title="Delete">×</button>`;
+    item.querySelector('.pp-item-load').addEventListener('click',()=>{
+      lta.value=p.lyrics; ppStatus.textContent=`Loaded "${p.name}"`; renderEditArea(); closeProfilePanel();
     });
-    item.querySelector('.pp-item-del').addEventListener('click', async () => {
-      if (!confirm(`Delete "${p.name}"?`)) return;
-      ppStatus.textContent = 'Deleting…';
-      const all = await fetchProfiles();
-      if (all === null) { ppStatus.textContent = '⚠ Network error'; return; }
-      const updated = all.filter(x => x.id !== p.id);
-      const ok = await saveProfiles(updated);
-      if (ok) { renderProfileList(updated); ppStatus.textContent = 'Deleted.'; }
-      else ppStatus.textContent = '⚠ Save failed';
+    item.querySelector('.pp-item-del').addEventListener('click',async()=>{
+      if(!confirm(`Delete "${p.name}"?`)) return;
+      ppStatus.textContent='Deleting…';
+      const all=await fetchProfiles();
+      if(all===null){ppStatus.textContent='⚠ Network error';return;}
+      const updated=all.filter(x=>x.id!==p.id);
+      const ok=await saveProfiles(updated);
+      if(ok){renderProfileList(updated);ppStatus.textContent='Deleted.';}
+      else ppStatus.textContent='⚠ Save failed';
     });
     ppList.appendChild(item);
   }
 }
-
-function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
 async function openProfilePanel() {
   profilePanel.classList.add('open'); profileToggle.classList.add('on');
-  ppStatus.textContent = 'Loading…'; ppList.innerHTML = '';
-  const profiles = await fetchProfiles();
-  if (profiles === null) { ppStatus.textContent = '⚠ Check JSONBin credentials'; return; }
+  ppStatus.textContent='Loading…'; ppList.innerHTML='';
+  const profiles=await fetchProfiles();
+  if(profiles===null){ppStatus.textContent='⚠ Check JSONBin credentials';return;}
   renderProfileList(profiles);
-  ppStatus.textContent = `${profiles.length} profile${profiles.length!==1?'s':''} saved`;
+  ppStatus.textContent=`${profiles.length} profile${profiles.length!==1?'s':''} saved`;
 }
 function closeProfilePanel() { profilePanel.classList.remove('open'); profileToggle.classList.remove('on'); }
-
-profileToggle.addEventListener('click', () => profilePanel.classList.contains('open') ? closeProfilePanel() : openProfilePanel());
-ppClose.addEventListener('click', closeProfilePanel);
-
-ppSaveBtn.addEventListener('click', async () => {
-  const name = ppNameInput.value.trim();
-  if (!name) { ppNameInput.focus(); return; }
-  const lyrics = lta.value.trim();
-  if (!lyrics) { ppStatus.textContent = 'Nothing to save.'; return; }
-  ppStatus.textContent = 'Saving…'; ppSaveBtn.disabled = true;
-  const profiles = await fetchProfiles();
-  if (profiles === null) { ppStatus.textContent = '⚠ Network error'; ppSaveBtn.disabled = false; return; }
-  profiles.push({ id: Date.now(), name, lyrics });
-  const ok = await saveProfiles(profiles);
-  ppSaveBtn.disabled = false;
-  if (ok) { ppNameInput.value = ''; renderProfileList(profiles); ppStatus.textContent = `Saved "${name}"!`; }
-  else ppStatus.textContent = '⚠ Save failed';
+profileToggle.addEventListener('click',()=>profilePanel.classList.contains('open')?closeProfilePanel():openProfilePanel());
+ppClose.addEventListener('click',closeProfilePanel);
+ppSaveBtn.addEventListener('click',async()=>{
+  const name=ppNameInput.value.trim();
+  if(!name){ppNameInput.focus();return;}
+  const lyrics=lta.value.trim();
+  if(!lyrics){ppStatus.textContent='Nothing to save.';return;}
+  ppStatus.textContent='Saving…'; ppSaveBtn.disabled=true;
+  const profiles=await fetchProfiles();
+  if(profiles===null){ppStatus.textContent='⚠ Network error';ppSaveBtn.disabled=false;return;}
+  profiles.push({id:Date.now(),name,lyrics});
+  const ok=await saveProfiles(profiles);
+  ppSaveBtn.disabled=false;
+  if(ok){ppNameInput.value='';renderProfileList(profiles);ppStatus.textContent=`Saved "${name}"!`;}
+  else ppStatus.textContent='⚠ Save failed';
 });
 
 // ═══════════════════════════════════════════════
