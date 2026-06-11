@@ -43,6 +43,28 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 .hdr-btn:hover{color:#bbb;background:#1e1e1e}
 .hdr-btn.on{color:#ff5722}
 
+/* Title area — appears above lyrics textarea when title box is active */
+#titleArea{
+  display:none;flex-direction:column;gap:4px;flex-shrink:0;
+  padding:8px 12px;border-bottom:1px solid #1a1a1a;background:#0f0f0f;
+}
+#titleArea.show{display:flex}
+.title-area-label{
+  display:flex;align-items:center;justify-content:space-between;
+}
+.title-area-label span{font-size:10px;color:#4caf50;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.title-area-label button{
+  background:none;border:none;cursor:pointer;color:#333;font-size:13px;
+  padding:0 4px;border-radius:3px;
+}
+.title-area-label button:hover{color:#e53935}
+#titleTextarea{
+  resize:none;padding:7px 10px;font-size:13px;line-height:1.6;
+  background:#111;color:#b0f0b0;border:1px solid #1e3d1e;border-radius:6px;
+  font-family:system-ui,sans-serif;height:68px;
+}
+#titleTextarea:focus{outline:none;border-color:#4caf50}
+
 /* Edit area */
 #editArea{flex:1;display:flex;flex-direction:column;gap:6px;padding:10px 12px;min-height:0;position:relative}
 #editHint{font-size:11px;color:#2e2e2e}
@@ -68,10 +90,11 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 .box-assign-overlay select{
   pointer-events:auto;
   background:#1a1a1a;color:#aaa;border:1px solid #252525;
-  border-radius:4px;padding:1px 3px;font-size:10px;
+  border-radius:3px;padding:0 2px;font-size:10px;
   margin-bottom:0;opacity:0.85;
-  line-height:1.7; /* match textarea line-height */
-  height:24px;
+  /* Exact match to textarea: font-size 14px * line-height 1.7 = 23.8px */
+  height:23px;
+  box-sizing:border-box;
 }
 /* Make textarea leave room on right for dropdowns when multiple boxes */
 #lta.has-boxes{padding-right:60px}
@@ -219,6 +242,15 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
     </div>
   </div>
 
+  <!-- Title area — shown when title box is enabled -->
+  <div id="titleArea">
+    <div class="title-area-label">
+      <span>⬆ Title Box &nbsp;·&nbsp; Left Shift to advance</span>
+      <button id="titleAreaClose" title="Remove title box">×</button>
+    </div>
+    <textarea id="titleTextarea" placeholder="Title line 1&#10;Title line 2&#10;(one per Left Shift press)"></textarea>
+  </div>
+
   <div id="editArea">
     <div id="editHint">One line per bar — press Play to record</div>
     <textarea id="lta" placeholder="Line 1&#10;Line 2&#10;Line 3"></textarea>
@@ -229,8 +261,7 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 
   <div id="performArea" style="display:none">
     <div class="perform-hint">
-      <kbd style="background:#1a1a1a;padding:2px 6px;border-radius:3px;color:#666;font-size:11px">Right Shift</kbd>
-      to advance
+      <kbd style="background:#1a1a1a;padding:2px 6px;border-radius:3px;color:#666;font-size:11px">Right Shift</kbd> advance lyrics
     </div>
     <div id="lyricList"></div>
   </div>
@@ -316,14 +347,17 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
     <div class="sp-sec">
       <h3>Text Boxes</h3>
       <div class="sp-row">
-        <label>Add box</label>
+        <label>Title box</label>
+        <input type="checkbox" id="titleBoxEnabled">
+      </div>
+      <div class="sp-row">
+        <label>Add lyric box</label>
         <button class="tool-btn" id="addBoxBtn">+ Add Box</button>
       </div>
       <div class="sp-row">
         <label>Clear all</label>
         <button class="tool-btn" id="clearBoxesBtn">✕ Clear</button>
       </div>
-      <p class="quality-note">Assign each lyric line to a box via the dropdown in the Edit panel</p>
     </div>
 
     <div class="sp-sec">
@@ -369,9 +403,9 @@ body{height:100vh;overflow:hidden;display:flex;background:#0d0d0d;color:#eee;fon
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  CONFIG
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 const PROFILES_API = '/.netlify/functions/profiles';
 const USE_JSONBIN  = true;
 
@@ -381,15 +415,19 @@ const GLYPH_PATHS = {
   messy:  { dir: 'glyphs_messy/', prefix: 'messy_', scale: 0.20 },
 };
 
-// Characters whose glyph images are 256px instead of the font's native size.
-// For normal/bold (native 512px), these need 2× scale.
-// For messy (native 256px), no correction needed.
-// key = glyph key string, value = scale multiplier relative to font's native
+// Characters whose PNGs are 256px in 512px-native fonts (normal/bold).
+// scale multiplier is applied on top of the font's base scale.
 const GLYPH_SCALE_OVERRIDES = {
-  '*': { normal: 2.0, bold: 2.0, messy: 1.0 }, // star 256px in all fonts
-  '(': { normal: 2.0, bold: 2.0, messy: 1.0 }, // parens same size as other glyphs
+  '*': { normal: 2.0, bold: 2.0, messy: 1.0 }, // star 256px in normal/bold
+  '(': { normal: 2.0, bold: 2.0, messy: 1.0 }, // parens 256px in normal/bold
   ')': { normal: 2.0, bold: 2.0, messy: 1.0 },
 };
+
+// Map characters to their filename keys (uppercase → capX, rest literal)
+function charToFileKey(c) {
+  if (c >= 'A' && c <= 'Z') return 'cap' + c;
+  return c; // (, ), * etc. used literally in filenames
+}
 
 const VARIANTS       = 3;
 const LETTER_SPACING = -27;
@@ -398,14 +436,13 @@ const LINE_HEIGHT    = 40;
 const FLICKER_MS     = 180;
 const HANDLE         = 14;
 const DEL_HANDLE     = 14;
-
 const STICKER_DIR      = 'glyphs_stickers/';
 const STICKER_VARIANTS = 3;
 const STICKER_BASE_PX  = 80;
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  ELEMENTS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 const vInput         = document.getElementById('vInput');
 const aInput         = document.getElementById('aInput');
 const aClear         = document.getElementById('aClear');
@@ -449,6 +486,10 @@ const simplifyBtn    = document.getElementById('simplifyBtn');
 const clearStickersBtn = document.getElementById('clearStickersBtn');
 const addBoxBtn      = document.getElementById('addBoxBtn');
 const clearBoxesBtn  = document.getElementById('clearBoxesBtn');
+const titleArea      = document.getElementById('titleArea');
+const titleTextarea  = document.getElementById('titleTextarea');
+const titleAreaClose = document.getElementById('titleAreaClose');
+const titleBoxEnabled= document.getElementById('titleBoxEnabled');
 const profileToggle  = document.getElementById('profileToggle');
 const profilePanel   = document.getElementById('profilePanel');
 const ppClose        = document.getElementById('ppClose');
@@ -457,9 +498,9 @@ const ppSaveBtn      = document.getElementById('ppSaveBtn');
 const ppList         = document.getElementById('ppList');
 const ppStatus       = document.getElementById('ppStatus');
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  SETTINGS WIRING
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 settingsToggle.addEventListener('click', () => {
   const open = settingsPanel.classList.toggle('open');
   settingsToggle.classList.toggle('on', open);
@@ -468,34 +509,28 @@ spClose.addEventListener('click', () => {
   settingsPanel.classList.remove('open');
   settingsToggle.classList.remove('on');
 });
-shadowOpacity.addEventListener('input', () => {
-  shadowValue.textContent = shadowOpacity.value + '%';
-});
+shadowOpacity.addEventListener('input', () => { shadowValue.textContent = shadowOpacity.value + '%'; });
 fontStyle.addEventListener('change', () => {
   Object.keys(glyphs).forEach(k => delete glyphs[k]);
   Object.keys(tintCache).forEach(k => delete tintCache[k]);
 });
-twSpeed?.addEventListener('input', () => {
-  if (twSpeedVal) twSpeedVal.textContent = twSpeed.value;
-});
+twSpeed?.addEventListener('input', () => { if (twSpeedVal) twSpeedVal.textContent = twSpeed.value; });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  SIMPLIFY
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 simplifyBtn.addEventListener('click', () => {
-  lta.value = lta.value
-    .toLowerCase()
-    .split('\n')
-    .map(line => line.split('').filter(ch =>
+  lta.value = lta.value.toLowerCase().split('\n').map(line =>
+    line.split('').filter(ch =>
       (ch >= 'a' && ch <= 'z') || ch === ' ' || ch === '*' || ch === '(' || ch === ')'
-    ).join('').replace(/ {2,}/g, ' ').trim())
-    .join('\n');
+    ).join('').replace(/ {2,}/g, ' ').trim()
+  ).join('\n');
   renderEditArea();
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  CUSTOM AUDIO
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 let customAudioBuffer = null;
 aInput.addEventListener('change', async () => {
   const f = aInput.files[0]; if (!f) return;
@@ -510,17 +545,49 @@ aClear.addEventListener('click', () => {
   statusEl.textContent = 'Using video audio.';
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  STATE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 const glyphs    = {};
 const tintCache = {};
-let flickerMaps = {};
+let flickerMaps     = {}; // boxId → flicker array
+let titleFlickerMap = []; // for title box
 let lastFlick   = 0;
-let curLine     = 0;
+let curLine     = 0;   // current lyric line index
+let curTitleLine = 0;  // current title line index (among title-assigned lines)
+
+// lineBoxAssign[i]: number (boxId 0..N) or 'title'
 let lineBoxAssign = [];
 
+// Lyric text boxes
 let textBoxes = [makeBox(0)];
+
+// Title box — always exactly one, separate from lyric boxes
+let titleBox = null; // created lazily when first title line exists
+
+function makeTitleBox() {
+  return {
+    x:  pc.width  ? pc.width  * 0.04 : 20,
+    y:  pc.height ? pc.height * 0.08  : 50,
+    bw: pc.width  ? pc.width  * 0.92 : 300,
+    bh: 60,
+    scale: 1.0,
+    isTitleBox: true,
+  };
+}
+
+function ensureTitleBox() {
+  if (!titleBox) titleBox = makeTitleBox();
+}
+
+// ── Title box toggle (checkbox + close button) ────
+function setTitleBoxVisible(show) {
+  titleArea.classList.toggle('show', show);
+  if (titleBoxEnabled) titleBoxEnabled.checked = show;
+  if (show && !titleBox) titleBox = makeTitleBox();
+}
+titleBoxEnabled?.addEventListener('change', () => setTitleBoxVisible(titleBoxEnabled.checked));
+titleAreaClose?.addEventListener('click',   () => setTitleBoxVisible(false));
 
 function makeBox(id) {
   return {
@@ -530,16 +597,17 @@ function makeBox(id) {
     bw: pc.width  ? pc.width  * 0.92 : 300,
     bh: 80,
     scale: 1.0,
+    isTitleBox: false,
   };
 }
+
 function addTextBox() {
   const id = textBoxes.length;
-  const box = makeBox(id);
-  textBoxes.push(box);
+  textBoxes.push(makeBox(id));
   renderEditArea();
 }
 function clearTextBoxes() {
-  lineBoxAssign = lineBoxAssign.map(() => 0);
+  lineBoxAssign = lineBoxAssign.map(a => a === 'title' ? 'title' : 0);
   textBoxes = [textBoxes[0]];
   renderEditArea();
 }
@@ -547,12 +615,16 @@ function deleteTextBox(id) {
   if (textBoxes.length <= 1) return;
   textBoxes = textBoxes.filter(b => b.id !== id);
   textBoxes.forEach((b, i) => { b.id = i; });
-  lineBoxAssign = lineBoxAssign.map(a => a >= textBoxes.length ? 0 : a);
+  lineBoxAssign = lineBoxAssign.map(a => {
+    if (a === 'title') return 'title';
+    return a >= textBoxes.length ? 0 : a;
+  });
   renderEditArea();
 }
 addBoxBtn?.addEventListener('click', addTextBox);
 clearBoxesBtn?.addEventListener('click', clearTextBoxes);
 
+// ── Stickers ──────────────────────────────────────
 const stickers = [];
 const stickerImgCache = {};
 function loadStickerImgs(name) {
@@ -576,15 +648,18 @@ document.querySelectorAll('.sticker-btn').forEach(btn => {
 });
 clearStickersBtn?.addEventListener('click', () => { stickers.length = 0; });
 
+// ── Drag state ────────────────────────────────────
 let drag = null;
+
+// ── Recording state ───────────────────────────────
 let recState = 'idle';
 let sharedAudioCtx = null, sharedAudioSource = null;
 let videoEncoder = null, audioEncoder = null, muxer = null, audioProcessor = null;
 let mrec = null, mchunks = [];
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  SCRUBBER
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function fmtTime(s) {
   if (!isFinite(s)) return '0:00';
   return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
@@ -605,9 +680,9 @@ vid.addEventListener('timeupdate', () => {
   timeNow.textContent = fmtTime(vid.currentTime);
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  VIDEO LOAD
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 vInput.addEventListener('change', () => {
   const f = vInput.files[0]; if (!f) return;
   discardRecording();
@@ -624,13 +699,17 @@ vid.addEventListener('loadedmetadata', () => {
     b.x = pc.width * 0.04; b.bw = pc.width * 0.92;
     b.y = pc.height * (0.60 + i * 0.07); b.scale = 1.0;
   });
+  if (titleBox) {
+    titleBox.x = pc.width * 0.04; titleBox.bw = pc.width * 0.92;
+    titleBox.y = pc.height * 0.08; titleBox.scale = 1.0;
+  }
   statusEl.textContent = 'Ready — press Play to record.';
   updateUI();
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  CANVAS SYNC
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function syncCanvas() {
   const r = pc.getBoundingClientRect();
   const w = Math.round(r.width), h = Math.round(r.height);
@@ -638,24 +717,21 @@ function syncCanvas() {
 }
 window.addEventListener('resize', syncCanvas);
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  UI STATE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function updateUI() {
   const hasVideo  = !!(vid.src && vid.videoWidth);
   const idle      = recState === 'idle';
   const recording = recState === 'recording';
   const paused    = recState === 'paused';
-
   playBtn  .disabled = !hasVideo || recording;
   pauseBtn .disabled = !recording;
   resetBtn .disabled = !hasVideo;
   exportBtn.disabled = idle;
   playBtn.textContent = paused ? '▶ Resume' : '▶ Play';
-
   stateBadge.textContent = recording ? '⏺ REC' : paused ? '⏸ Paused' : 'Idle';
   stateBadge.className = 'state-badge' + (recording ? ' rec' : paused ? ' paused' : '');
-
   scrubber.disabled = recording || !hasVideo;
   editArea   .style.display = recording ? 'none' : 'flex';
   performArea.style.display = recording ? 'flex'  : 'none';
@@ -664,35 +740,25 @@ function updateUI() {
     : 'One line per bar — press Play to record';
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  GLYPHS
-// ═══════════════════════════════════════════════
-function gKey(c) {
-  if (c >= 'A' && c <= 'Z') return 'cap' + c;
-  // Map special characters to their file key names
-  if (c === '(') return '(';
-  if (c === ')') return ')';
-  if (c === '*') return '*';
-  return c;
-}
-
-function loadG(k) {
-  if (glyphs[k]) return;
-  glyphs[k] = [];
+// ═══════════════════════════════════════
+function loadG(key) {
+  if (glyphs[key]) return;
+  glyphs[key] = [];
   const style = fontStyle?.value ?? 'bold';
   const { dir, prefix } = GLYPH_PATHS[style] ?? GLYPH_PATHS.bold;
-  // Map glyph key to filename-safe string
-  const fileKey = k === '(' ? '(' : k === ')' ? ')' : k === '*' ? '*' : k;
   for (let i = 1; i <= VARIANTS; i++) {
     const img = new Image();
-    img.src = `${dir}${prefix}${fileKey}_${i}.png`;
-    glyphs[k].push(img);
+    img.src = `${dir}${prefix}${key}_${i}.png`;
+    glyphs[key].push(img);
   }
 }
 
 function getG(c, vi) {
-  const k = gKey(c); if (!glyphs[k]) loadG(k);
-  const g = glyphs[k]?.[vi];
+  const key = charToFileKey(c);
+  if (!glyphs[key]) loadG(key);
+  const g = glyphs[key]?.[vi];
   return (g && g.complete && g.naturalWidth > 0) ? g : null;
 }
 
@@ -700,16 +766,16 @@ function getFontScale() {
   return (GLYPH_PATHS[fontStyle?.value ?? 'bold'] ?? GLYPH_PATHS.bold).scale;
 }
 
-// Per-character scale multiplier (for chars whose PNG is a different size than the font's native)
+// Per-character scale multiplier for chars whose PNG differs from font's native size
 function getCharScaleMult(c) {
-  const k = gKey(c);
+  const key   = charToFileKey(c);
   const style = fontStyle?.value ?? 'bold';
-  return GLYPH_SCALE_OVERRIDES[k]?.[style] ?? 1.0;
+  return GLYPH_SCALE_OVERRIDES[key]?.[style] ?? 1.0;
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  TINT CACHE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function getTintedGlyph(g, color, gw, gh) {
   const w = Math.ceil(gw), h = Math.ceil(gh);
   const key = `${g.src}_${color}_${w}_${h}`;
@@ -726,11 +792,10 @@ function getTintedGlyph(g, color, gw, gh) {
 }
 textColor?.addEventListener('input', () => { Object.keys(tintCache).forEach(k => delete tintCache[k]); });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  LAYOUT
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function layoutLines(text, baseGs, ls, sw, maxW) {
-  // baseGs is the font's base glyph scale — individual chars may have overrides
   const rows = [];
   let rowWords = [], rowW = 0;
   for (const word of text.split(' ')) {
@@ -749,66 +814,107 @@ function layoutLines(text, baseGs, ls, sw, maxW) {
   return rows;
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  TYPEWRITER
-//  Speed slider 1-10.
-//  Typewriter now ticks every RAF frame (~60fps).
-//  Speed 1  → 1 char per 8 frames  (~133ms/char, very slow)
-//  Speed 5  → 1 char per 3 frames  (~50ms/char, medium)
-//  Speed 10 → Infinity (instant, all chars at once)
-// ═══════════════════════════════════════════════
-let typewriterState = {}; // boxId → { chars, total, framesSince }
+// ═══════════════════════════════════════
+let typewriterState = {}; // key: boxId or 'title' → { chars, total, framesSince }
 
-function startTypewriterForBox(boxId, text) {
-  if (!typewriterEnabled?.checked) { typewriterState[boxId] = { chars: Infinity, total: 0, framesSince: 0 }; return; }
+function startTypewriterForBox(key, text) {
+  if (!typewriterEnabled?.checked) {
+    typewriterState[key] = { chars: Infinity, total: 0, framesSince: 0 }; return;
+  }
   const total = text.replace(/ /g, '').length;
-  typewriterState[boxId] = { chars: 0, total, framesSince: 0 };
+  typewriterState[key] = { chars: 0, total, framesSince: 0 };
 }
 
 function tickTypewriters() {
   const v = Number(twSpeed?.value ?? 7);
   if (v >= 10) {
-    // Instant — reveal all
-    for (const state of Object.values(typewriterState)) state.chars = Infinity;
+    for (const s of Object.values(typewriterState)) s.chars = Infinity;
     return;
   }
-  // Frames to wait between each char reveal: speed 1 = 8 frames, speed 9 = 1 frame
   const framesPerChar = Math.max(1, Math.round(9 - (v - 1)));
-  for (const state of Object.values(typewriterState)) {
-    if (state.chars >= state.total) continue;
-    state.framesSince = (state.framesSince ?? 0) + 1;
-    if (state.framesSince >= framesPerChar) {
-      state.chars++;
-      state.framesSince = 0;
-    }
+  for (const s of Object.values(typewriterState)) {
+    if (s.chars >= s.total) continue;
+    s.framesSince = (s.framesSince ?? 0) + 1;
+    if (s.framesSince >= framesPerChar) { s.chars++; s.framesSince = 0; }
   }
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  ACTIVE LINES
-// ═══════════════════════════════════════════════
+//
+//  IMPORTANT: a box only shows text if curLine is currently
+//  assigned to that box. When you advance past box 1's last line
+//  into box 2, box 1 goes blank immediately.
+//  (No backward scanning — strict "current line" only.)
+// ═══════════════════════════════════════
 function readLinesFromTextarea() {
   return lta.value.split('\n').map(l => l.trimEnd());
 }
 
+// Returns { text, boxId } for each lyric box that has the CURRENT line assigned.
+// A box is only visible if curLine's assign equals that boxId.
 function getActiveLines() {
   const ls = readLinesFromTextarea();
   if (!ls.length) return [];
-  const result = [], seenBoxes = new Set();
-  for (let i = curLine; i >= 0; i--) {
-    const boxId = lineBoxAssign[i] ?? 0;
-    if (!seenBoxes.has(boxId)) {
-      seenBoxes.add(boxId);
-      if (ls[i]?.trim()) result.push({ text: ls[i], boxId, lineIdx: i });
-    }
-    if (seenBoxes.size === textBoxes.length) break;
+
+  // Which boxId does curLine belong to?
+  const curAssign = lineBoxAssign[curLine] ?? 0;
+
+  // Build result: the current line for its box, plus any OTHER boxes
+  // that were last assigned BEFORE curLine (so they persist until
+  // explicitly replaced — but clear when a NEW line for that box arrives)
+  //
+  // Rule: each box shows the MOST RECENT line assigned to it at or before
+  // curLine — UNLESS a newer line for that box exists and we've passed it,
+  // in which case: if the NEXT line for that box is AFTER curLine, keep
+  // showing the last seen. But if curLine IS in that box, update it.
+  //
+  // Simpler correct model:
+  // For each lyric box, find the last line assigned to it with lineIdx <= curLine.
+  // If that line is the curLine itself, show it (fresh + typewriter starts).
+  // If it's a previous line, keep showing it (persistent until overwritten).
+  // Clear a box only when curLine moves PAST the last line for that box AND
+  // a new line for a DIFFERENT box is now active.
+  //
+  // Actually the user's request is: "text in the previous box should disappear"
+  // when switching. So: each box only shows its text while curLine is CURRENTLY
+  // assigned to it. When curLine moves to a different box, the old box goes blank.
+  //
+  // That means: show text in boxId if the CURRENT curLine (or the most recent
+  // line before curLine assigned to that box, if no newer line for that box
+  // has appeared yet) is assigned to it. BUT: if ANY line after that last-seen
+  // line is assigned to this box, it means a NEW lyric for that box will come
+  // later — so keep showing old text. Wait — that contradicts the request.
+  //
+  // The user said "text in the previous box should disappear" — meaning
+  // when you shift to a new line that goes in box 2, box 1 should go blank.
+  // So the model IS: only show text in a box if curLine itself is assigned to it.
+
+  const result = [];
+  if (curAssign !== 'title' && ls[curLine]?.trim()) {
+    const boxId = Number(curAssign);
+    result.push({ text: ls[curLine], boxId, lineIdx: curLine, key: boxId });
   }
   return result;
 }
 
-// ═══════════════════════════════════════════════
+// Returns current title line text from the title textarea (or null if exhausted/hidden)
+function getTitleLines() {
+  if (!titleBoxEnabled?.checked || !titleTextarea) return [];
+  return titleTextarea.value.split('\n').map(l => l.trimEnd()).filter(l => l.trim());
+}
+
+function getActiveTitleText() {
+  const tl = getTitleLines();
+  if (!tl.length || curTitleLine >= tl.length) return null;
+  return tl[curTitleLine];
+}
+
+// ═══════════════════════════════════════
 //  DRAW GLYPHS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function drawGlyphs(ctx2, text, box, sc, flickerArr, twChars) {
   const sx = box.x * sc, sy = box.y * sc, maxW = box.bw * sc;
   const scale = box.scale;
@@ -864,9 +970,9 @@ function drawGlyphs(ctx2, text, box, sc, flickerArr, twChars) {
   }
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  DRAW STICKERS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function drawStickers(ctx2, sc) {
   for (const s of stickers) {
     const img = s.imgs[s.flickerIdx];
@@ -876,195 +982,263 @@ function drawStickers(ctx2, sc) {
   }
 }
 
-// ═══════════════════════════════════════════════
-//  TEXT BOX UI (preview only)
-// ═══════════════════════════════════════════════
-function drawTextBoxUI(box) {
+// ═══════════════════════════════════════
+//  BOX UI DRAWING (preview only)
+// ═══════════════════════════════════════
+function drawBoxUI(box, label, canDelete, color) {
   const fontSc = getFontScale();
-  const gs = fontSc * box.scale, ls = LETTER_SPACING * box.scale;
+  const gs = fontSc * box.scale, ls2 = LETTER_SPACING * box.scale;
   const sw = SPACE_WIDTH * box.scale, lh = LINE_HEIGHT * box.scale;
-  const active = getActiveLines().find(al => al.boxId === box.id);
-  const text = active?.text ?? '';
-  box.bh = text ? layoutLines(text, gs, ls, sw, box.bw).length * lh + lh * 0.5 : lh * 1.5;
+
+  // Find text for this box
+  let text = '';
+  if (box.isTitleBox) {
+    text = getActiveTitleText() ?? '';
+  } else {
+    const al = getActiveLines().find(a => a.boxId === box.id);
+    text = al?.text ?? '';
+  }
+  box.bh = text ? layoutLines(text, gs, ls2, sw, box.bw).length * lh + lh * 0.5 : lh * 1.5;
 
   pctx.save();
   pctx.setLineDash([5, 4]);
-  pctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  pctx.strokeStyle = color ?? 'rgba(255,255,255,0.5)';
   pctx.lineWidth = 1.5;
   pctx.strokeRect(box.x, box.y, box.bw, box.bh);
   pctx.setLineDash([]);
-  pctx.fillStyle = '#ff5722';
+
+  // Resize handle — bottom-right (orange for lyric, green for title)
+  const hColor = box.isTitleBox ? '#4caf50' : '#ff5722';
+  pctx.fillStyle = hColor;
   pctx.fillRect(box.x + box.bw - HANDLE, box.y + box.bh - HANDLE, HANDLE, HANDLE);
   pctx.fillStyle = '#fff';
   pctx.font = `bold ${HANDLE-2}px system-ui`;
   pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
   pctx.fillText('⤡', box.x + box.bw - HANDLE/2, box.y + box.bh - HANDLE/2);
-  if (textBoxes.length > 1) {
+
+  // Delete × — top-left (only if canDelete)
+  if (canDelete) {
     pctx.fillStyle = '#e53935';
     pctx.fillRect(box.x, box.y, DEL_HANDLE, DEL_HANDLE);
     pctx.fillStyle = '#fff';
     pctx.fillText('×', box.x + DEL_HANDLE/2, box.y + DEL_HANDLE/2);
   }
+
+  // Label above box
   pctx.textAlign = 'center'; pctx.textBaseline = 'alphabetic';
   pctx.font = `bold ${HANDLE}px system-ui`;
-  pctx.fillStyle = 'rgba(255,255,255,0.5)';
-  pctx.fillText(`Box ${box.id + 1}`, box.x + box.bw/2, box.y - 3);
+  pctx.fillStyle = color ?? 'rgba(255,255,255,0.5)';
+  pctx.fillText(label, box.x + box.bw/2, box.y - 3);
   pctx.restore();
 }
 
 function drawStickerBox(s) {
   const sz = STICKER_BASE_PX * s.scale;
   pctx.save();
-  pctx.setLineDash([4, 3]);
+  pctx.setLineDash([4,3]);
   pctx.strokeStyle = 'rgba(100,200,255,0.6)';
   pctx.lineWidth = 1.5;
   pctx.strokeRect(s.x, s.y, sz, sz);
   pctx.setLineDash([]);
   pctx.fillStyle = '#2196f3';
-  pctx.fillRect(s.x + sz - HANDLE, s.y + sz - HANDLE, HANDLE, HANDLE);
+  pctx.fillRect(s.x+sz-HANDLE, s.y+sz-HANDLE, HANDLE, HANDLE);
   pctx.fillStyle = '#fff';
   pctx.font = `bold ${HANDLE-2}px system-ui`;
   pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
-  pctx.fillText('⤡', s.x + sz - HANDLE/2, s.y + sz - HANDLE/2);
+  pctx.fillText('⤡', s.x+sz-HANDLE/2, s.y+sz-HANDLE/2);
   pctx.fillStyle = '#e53935';
   pctx.fillRect(s.x, s.y, DEL_HANDLE, DEL_HANDLE);
   pctx.fillStyle = '#fff';
-  pctx.fillText('×', s.x + DEL_HANDLE/2, s.y + DEL_HANDLE/2);
+  pctx.fillText('×', s.x+DEL_HANDLE/2, s.y+DEL_HANDLE/2);
   pctx.restore();
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  SAFE ZONE OVERLAYS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function drawSafeZoneOverlay(topFrac, bottomFrac, rightFrac, label, color) {
   const W = pc.width, H = pc.height;
   pctx.save();
   pctx.fillStyle = color;
   pctx.fillRect(0, 0, W, H * topFrac);
-  pctx.fillRect(0, H * (1 - bottomFrac), W, H * bottomFrac);
-  pctx.fillRect(W * (1 - rightFrac), 0, W * rightFrac, H);
+  pctx.fillRect(0, H * (1-bottomFrac), W, H * bottomFrac);
+  pctx.fillRect(W * (1-rightFrac), 0, W * rightFrac, H);
   pctx.fillStyle = 'rgba(255,255,255,0.7)';
-  pctx.font = `bold ${W * 0.036}px system-ui`;
+  pctx.font = `bold ${W*0.036}px system-ui`;
   pctx.textAlign = 'left'; pctx.textBaseline = 'middle';
-  pctx.fillText(label + ' unsafe zone', W * 0.04, H * topFrac * 0.5);
+  pctx.fillText(label+' unsafe zone', W*0.04, H*topFrac*0.5);
   pctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  pctx.lineWidth = 1.5; pctx.setLineDash([6, 4]);
-  pctx.strokeRect(0, H * topFrac, W * (1 - rightFrac), H * (1 - topFrac - bottomFrac));
+  pctx.lineWidth = 1.5; pctx.setLineDash([6,4]);
+  pctx.strokeRect(0, H*topFrac, W*(1-rightFrac), H*(1-topFrac-bottomFrac));
   pctx.restore();
 }
-function drawTikTokOverlay() { drawSafeZoneOverlay(0.07, 0.22, 0.14, 'TikTok',    'rgba(254,44,85,0.28)'); }
-function drawInstaOverlay()  { drawSafeZoneOverlay(0.06, 0.20, 0.13, 'Instagram', 'rgba(131,58,180,0.28)'); }
+function drawTikTokOverlay() { drawSafeZoneOverlay(0.07,0.22,0.14,'TikTok',   'rgba(254,44,85,0.28)'); }
+function drawInstaOverlay()  { drawSafeZoneOverlay(0.06,0.20,0.13,'Instagram','rgba(131,58,180,0.28)'); }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function renderLoop(ts) {
   requestAnimationFrame(renderLoop);
-
-  // Typewriter ticks every frame (decoupled from flicker)
-  // so speed feels responsive regardless of FLICKER_MS
   tickTypewriters();
 
   if (ts - lastFlick > FLICKER_MS) {
+    // Lyric box flicker maps
     for (const al of getActiveLines()) {
       flickerMaps[al.boxId] = [...al.text].map(c =>
+        c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
+    }
+    // Title box flicker map
+    const titleText = getActiveTitleText();
+    if (titleText) {
+      titleFlickerMap = [...titleText].map(c =>
         c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
     }
     for (const s of stickers) s.flickerIdx = Math.floor(Math.random() * STICKER_VARIANTS);
     lastFlick = ts;
   }
+
   pctx.clearRect(0, 0, pc.width, pc.height);
+
+  // Draw lyric text
   for (const al of getActiveLines()) {
     const box = textBoxes[al.boxId] ?? textBoxes[0];
     const tw  = typewriterState[al.boxId];
     drawGlyphs(pctx, al.text, box, 1, flickerMaps[al.boxId], tw ? tw.chars : Infinity);
   }
+
+  // Draw title text
+  const titleText = getActiveTitleText();
+  if (titleText && titleBox) {
+    const tw = typewriterState['title'];
+    drawGlyphs(pctx, titleText, titleBox, 1, titleFlickerMap, tw ? tw.chars : Infinity);
+  }
+
   drawStickers(pctx, 1);
-  for (const box of textBoxes) drawTextBoxUI(box);
+
+  // Draw UI boxes (preview only)
+  for (const box of textBoxes) {
+    drawBoxUI(box, `Box ${box.id+1}`, textBoxes.length > 1, 'rgba(255,255,255,0.5)');
+  }
+  if (titleBox) {
+    drawBoxUI(titleBox, 'Title', false, 'rgba(100,255,120,0.6)');
+  }
   for (const s of stickers) drawStickerBox(s);
   if (overlayTikTok?.checked) drawTikTokOverlay();
   if (overlayInsta?.checked)  drawInstaOverlay();
 }
 requestAnimationFrame(renderLoop);
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  HIT TESTING
-// ═══════════════════════════════════════════════
-function cPt(cx, cy) { const r = pc.getBoundingClientRect(); return { x: cx-r.left, y: cy-r.top }; }
-function inHandle(rx, ry, x, y, w, h) { return rx>=x+w-HANDLE&&rx<=x+w&&ry>=y+h-HANDLE&&ry<=y+h; }
-function inRect(rx, ry, x, y, w, h)   { return rx>=x&&rx<=x+w&&ry>=y&&ry<=y+h; }
+// ═══════════════════════════════════════
+function cPt(cx,cy) { const r=pc.getBoundingClientRect(); return {x:cx-r.left,y:cy-r.top}; }
+function inHandle(rx,ry,x,y,w,h) { return rx>=x+w-HANDLE&&rx<=x+w&&ry>=y+h-HANDLE&&ry<=y+h; }
+function inRect(rx,ry,x,y,w,h)   { return rx>=x&&rx<=x+w&&ry>=y&&ry<=y+h; }
 
 pc.addEventListener('mousedown', e => {
   e.preventDefault();
-  const { x, y } = cPt(e.clientX, e.clientY);
-  for (let i = stickers.length-1; i>=0; i--) {
-    const s = stickers[i]; const sz = STICKER_BASE_PX * s.scale;
+  const {x,y} = cPt(e.clientX,e.clientY);
+
+  // Stickers
+  for (let i=stickers.length-1;i>=0;i--) {
+    const s=stickers[i]; const sz=STICKER_BASE_PX*s.scale;
     if (x>=s.x&&x<=s.x+DEL_HANDLE&&y>=s.y&&y<=s.y+DEL_HANDLE) { stickers.splice(i,1); return; }
     if (inHandle(x,y,s.x,s.y,sz,sz)) { drag={target:s,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:s.scale}; return; }
     if (inRect(x,y,s.x,s.y,sz,sz))   { drag={target:s,mode:'move',  startMX:e.clientX,startMY:e.clientY,startX:s.x,startY:s.y}; return; }
   }
-  for (let i = textBoxes.length-1; i>=0; i--) {
-    const box = textBoxes[i]; const { x: bx, y: by, bw, bh } = box;
+
+  // Title box
+  if (titleBox) {
+    const {x:bx,y:by,bw,bh} = titleBox;
+    if (inHandle(x,y,bx,by,bw,bh)) {
+      drag={target:titleBox,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:titleBox.scale,startBW:bw};
+      return;
+    }
+    if (inRect(x,y,bx,by,bw,bh)) {
+      drag={target:titleBox,mode:'move',startMX:e.clientX,startMY:e.clientY,startX:bx,startY:by};
+      return;
+    }
+  }
+
+  // Lyric text boxes
+  for (let i=textBoxes.length-1;i>=0;i--) {
+    const box=textBoxes[i]; const {x:bx,y:by,bw,bh}=box;
     if (textBoxes.length>1&&x>=bx&&x<=bx+DEL_HANDLE&&y>=by&&y<=by+DEL_HANDLE) { deleteTextBox(box.id); return; }
-    if (inHandle(x,y,bx,by,bw,bh)) { drag={target:box,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:box.scale}; return; }
-    if (inRect(x,y,bx,by,bw,bh))   { drag={target:box,mode:'move',  startMX:e.clientX,startMY:e.clientY,startX:bx,startY:by}; return; }
+    if (inHandle(x,y,bx,by,bw,bh)) {
+      drag={target:box,mode:'resize',startMX:e.clientX,startMY:e.clientY,startScale:box.scale,startBW:bw};
+      return;
+    }
+    if (inRect(x,y,bx,by,bw,bh)) {
+      drag={target:box,mode:'move',startMX:e.clientX,startMY:e.clientY,startX:bx,startY:by};
+      return;
+    }
   }
 });
+
 pc.addEventListener('touchstart', e => {
-  const t = e.touches[0];
+  const t=e.touches[0];
   pc.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY}));
 },{passive:false});
+
 window.addEventListener('mousemove', e => {
   if (!drag) return;
-  const dx = e.clientX-drag.startMX, dy = e.clientY-drag.startMY;
-  const t = drag.target;
+  const dx=e.clientX-drag.startMX, dy=e.clientY-drag.startMY;
+  const t=drag.target;
   if (stickers.includes(t)) {
     if (drag.mode==='move') { t.x=drag.startX+dx; t.y=drag.startY+dy; }
     else { t.scale=Math.max(0.2,Math.min(8,drag.startScale+(dx+dy)/150)); }
   } else {
-    if (drag.mode==='move') { t.x=drag.startX+dx; t.y=drag.startY+dy; }
-    else { t.scale=Math.max(0.3,Math.min(5,drag.startScale+(dx+dy)/200)); }
-  }
-});
-window.addEventListener('touchmove', e => {
-  const t = e.touches[0];
-  window.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));
-},{passive:false});
-window.addEventListener('mouseup',  () => { drag=null; });
-window.addEventListener('touchend', () => { drag=null; });
-pc.addEventListener('mousemove', e => {
-  if (drag) return;
-  const {x,y} = cPt(e.clientX,e.clientY);
-  let cursor = 'default';
-  for (let i=stickers.length-1;i>=0;i--) {
-    const s=stickers[i]; const sz=STICKER_BASE_PX*s.scale;
-    if (inHandle(x,y,s.x,s.y,sz,sz)) { cursor='nwse-resize'; break; }
-    if (inRect(x,y,s.x,s.y,sz,sz))   { cursor='grab'; break; }
-  }
-  if (cursor==='default') {
-    for (let i=textBoxes.length-1;i>=0;i--) {
-      const b=textBoxes[i];
-      if (inHandle(x,y,b.x,b.y,b.bw,b.bh)) { cursor='nwse-resize'; break; }
-      if (inRect(x,y,b.x,b.y,b.bw,b.bh))   { cursor='grab'; break; }
+    // Text box: move vs resize
+    if (drag.mode==='move') {
+      t.x=drag.startX+dx; t.y=drag.startY+dy;
+    } else {
+      // Resize:
+      // dx (horizontal) → change box width (bw)
+      // dy (vertical)   → change text scale (font size)
+      // diagonal         → both
+      t.bw  = Math.max(40, drag.startBW   + dx);
+      t.scale = Math.max(0.2, Math.min(5, drag.startScale - dy / 150));
     }
   }
-  pc.style.cursor = cursor;
 });
 
-// ═══════════════════════════════════════════════
+window.addEventListener('touchmove', e => {
+  const t=e.touches[0];
+  window.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));
+},{passive:false});
+window.addEventListener('mouseup',  ()=>{ drag=null; });
+window.addEventListener('touchend', ()=>{ drag=null; });
+pc.addEventListener('mousemove', e => {
+  if (drag) return;
+  const {x,y}=cPt(e.clientX,e.clientY);
+  let cursor='default';
+  for (let i=stickers.length-1;i>=0;i--) {
+    const s=stickers[i]; const sz=STICKER_BASE_PX*s.scale;
+    if (inHandle(x,y,s.x,s.y,sz,sz)){cursor='nwse-resize';break;}
+    if (inRect(x,y,s.x,s.y,sz,sz)){cursor='grab';break;}
+  }
+  if (cursor==='default') {
+    const allBoxes = titleBox ? [...textBoxes, titleBox] : textBoxes;
+    for (let i=allBoxes.length-1;i>=0;i--) {
+      const b=allBoxes[i];
+      if (inHandle(x,y,b.x,b.y,b.bw,b.bh)){cursor='nwse-resize';break;}
+      if (inRect(x,y,b.x,b.y,b.bw,b.bh)){cursor='grab';break;}
+    }
+  }
+  pc.style.cursor=cursor;
+});
+
+// ═══════════════════════════════════════
 //  EDIT AREA — inline box-assign dropdowns
-//
-//  Instead of a separate panel, we overlay tiny selects
-//  positioned at the right of each line in the textarea.
-//  We compute each line's vertical offset using the textarea's
-//  scrollTop + lineHeight to position each select.
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function renderEditArea() {
   const ls = readLinesFromTextarea();
   while (lineBoxAssign.length < ls.length) lineBoxAssign.push(0);
   lineBoxAssign = lineBoxAssign.slice(0, ls.length);
+  // Clean up any leftover 'title' assignments from old data
+  lineBoxAssign = lineBoxAssign.map(a => a === 'title' ? 0 : a);
 
-  // Get or create the overlay container
   let overlay = document.getElementById('boxAssignOverlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -1073,7 +1247,7 @@ function renderEditArea() {
     editArea.appendChild(overlay);
   }
 
-  // Only show when multiple boxes exist
+  // Only show dropdowns when there are multiple lyric boxes
   if (textBoxes.length <= 1) {
     overlay.style.display = 'none';
     lta.classList.remove('has-boxes');
@@ -1083,26 +1257,25 @@ function renderEditArea() {
   lta.classList.add('has-boxes');
   overlay.innerHTML = '';
 
-  // Position overlay to align with textarea content area
-  // We use the textarea's computed line-height to space selects
-  const ltaRect   = lta.getBoundingClientRect();
-  const areaRect  = editArea.getBoundingClientRect();
-  const ltaTop    = ltaRect.top - areaRect.top;
-  const lineH     = 14 * 1.7; // font-size 14px * line-height 1.7
+  const ltaRect  = lta.getBoundingClientRect();
+  const areaRect = editArea.getBoundingClientRect();
+  const ltaTop   = ltaRect.top - areaRect.top;
+  // Exact height: textarea font-size * line-height = 14 * 1.7 = 23.8 → round to 24
+  // But browsers add a tiny gap between lines, so we use exact pixel measurement
+  const lineH = parseFloat(getComputedStyle(lta).lineHeight) || 23.8;
 
-  overlay.style.top  = (ltaTop + 10) + 'px'; // +10 = textarea padding-top
-  overlay.style.bottom = '';
-  overlay.style.height = (ltaRect.height - 20) + 'px';
+  overlay.style.top       = (ltaTop + 10) + 'px'; // +10 = textarea padding-top
+  overlay.style.bottom    = '';
+  overlay.style.height    = (ltaRect.height - 20) + 'px';
   overlay.style.overflowY = 'hidden';
 
   ls.forEach((line, i) => {
     const sel = document.createElement('select');
     sel.style.cssText = `
       background:#1a1a1a;color:#777;border:1px solid #252525;
-      border-radius:3px;padding:1px 3px;font-size:10px;
-      height:${Math.round(lineH)}px;margin-bottom:0;
-      opacity:${line.trim() ? '0.9' : '0.3'};
-      cursor:pointer;
+      border-radius:3px;padding:0 2px;font-size:10px;
+      height:${lineH}px;box-sizing:border-box;
+      opacity:${line.trim() ? '0.9' : '0.3'};cursor:pointer;
     `;
     textBoxes.forEach(b => {
       const opt = document.createElement('option');
@@ -1118,9 +1291,9 @@ function renderEditArea() {
 lta.addEventListener('input', renderEditArea);
 lta.addEventListener('scroll', renderEditArea);
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  PERFORM LIST
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 let lines = [];
 
 function renderPerformList() {
@@ -1128,32 +1301,48 @@ function renderPerformList() {
   lines.forEach((l, i) => {
     const d = document.createElement('div');
     const boxId = lineBoxAssign[i] ?? 0;
-    const boxLabel = textBoxes.length > 1 ? ` [B${boxId+1}]` : '';
-    d.textContent = (l || '(empty)') + boxLabel;
+    const tag = textBoxes.length > 1 ? ` [B${Number(boxId)+1}]` : '';
+    d.textContent = (l || '(empty)') + tag;
     d.className = 'lyric-line'
       + (i === curLine     ? ' active'  : '')
       + (i  < curLine      ? ' done'    : '')
       + (i === curLine + 1 ? ' next-up' : '');
     lyricList.appendChild(d);
   });
-  lyricList.querySelector('.active')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  lyricList.querySelector('.active')?.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 
 function advanceLine() {
   if (curLine >= lines.length - 1) return;
   curLine++;
-  for (const al of getActiveLines()) {
-    if (al.lineIdx === curLine) startTypewriterForBox(al.boxId, al.text);
-  }
+  const boxId = Number(lineBoxAssign[curLine] ?? 0);
+  if (lines[curLine]?.trim()) startTypewriterForBox(boxId, lines[curLine]);
   renderPerformList();
 }
+
+function advanceTitleLine() {
+  const tl = getTitleLines();
+  if (!tl.length) return;
+  if (curTitleLine < tl.length - 1) {
+    // Advance to next title line
+    curTitleLine++;
+    const newText = tl[curTitleLine];
+    startTypewriterForBox('title', newText);
+    titleFlickerMap = [...newText].map(c => c === ' ' ? null : Math.floor(Math.random() * VARIANTS));
+  } else {
+    // Past the last title line — hide the title box
+    curTitleLine = tl.length; // beyond array = getActiveTitleText returns null
+  }
+}
+
 document.addEventListener('keydown', e => {
   if (e.code === 'ShiftRight') { e.preventDefault(); advanceLine(); }
+  if (e.code === 'ShiftLeft')  { e.preventDefault(); advanceTitleLine(); }
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  CONTROLS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 playBtn.addEventListener('click', () => {
   if (!vid.src) return;
   if (recState === 'paused') {
@@ -1166,18 +1355,22 @@ playBtn.addEventListener('click', () => {
   }
   if (recState === 'idle') {
     lines = readLinesFromTextarea();
-    curLine = 0;
+    curLine = 0; curTitleLine = 0;
     typewriterState = {};
-    for (const al of getActiveLines()) startTypewriterForBox(al.boxId, al.text);
+    // Start typewriter for first lyric line
+    if (lines[0]?.trim()) {
+      startTypewriterForBox(Number(lineBoxAssign[0] ?? 0), lines[0]);
+    }
+    // Start typewriter for first title line if title box is active
+    const titleText = getActiveTitleText();
+    if (titleText) startTypewriterForBox('title', titleText);
     startExportCapture();
   }
 });
 
 pauseBtn.addEventListener('click', () => {
   if (recState !== 'recording') return;
-  vid.pause();
-  recState = 'paused';
-  updateUI();
+  vid.pause(); recState = 'paused'; updateUI();
   statusEl.textContent = 'Paused — edit lyrics if needed, then Resume';
 });
 
@@ -1185,38 +1378,25 @@ resetBtn.addEventListener('click', async () => {
   await discardRecording();
   vid.pause(); vid.currentTime = 0;
   scrubber.value = 0; timeNow.textContent = '0:00';
-  curLine = 0; recState = 'idle'; typewriterState = {};
+  curLine = 0; curTitleLine = 0; recState = 'idle'; typewriterState = {};
   updateUI();
   statusEl.textContent = 'Reset — press Play to start fresh.';
 });
 
 exportBtn.addEventListener('click', () => {
   if (recState === 'idle') return;
-  vid.pause();
-  stopExportCapture();
+  vid.pause(); stopExportCapture();
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  COMPOSITE CANVAS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 const compCanvas = document.createElement('canvas');
 const compCtx    = compCanvas.getContext('2d');
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  START RECORDING
-//
-//  Frame pacing is driven by vid.currentTime so pause is seamless.
-//
-//  PAUSE HICCUP FIX:
-//  The ScriptProcessor may fire 1-2 extra callbacks after vid.pause()
-//  because the Web Audio graph drains asynchronously. Those callbacks
-//  deliver silence and advance audioFrameCount incorrectly, creating a
-//  timestamp gap when audio resumes.
-//  Fix: track `audioEncodedUpTo` in seconds (video time). The
-//  ScriptProcessor callback checks if vid is actually playing before
-//  encoding, and aligns its timestamp to the video position rather
-//  than a free-running counter.
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 function startExportCapture() {
   if (recState !== 'idle') return;
   if (!vid.videoWidth) { statusEl.textContent = 'No video loaded.'; return; }
@@ -1226,12 +1406,12 @@ function startExportCapture() {
 
   compCanvas.width  = vid.videoWidth;
   compCanvas.height = vid.videoHeight;
-  const sx = vid.videoWidth  / pc.width;
+  const sx = vid.videoWidth / pc.width;
   const W  = vid.videoWidth, H = vid.videoHeight;
 
   if (typeof VideoEncoder === 'undefined' || typeof Mp4Muxer === 'undefined') {
-    recState = 'recording'; updateUI(); renderPerformList();
-    startWebmFallback(sx, W, H, EXPORT_FPS); vid.play(); return;
+    recState='recording'; updateUI(); renderPerformList();
+    startWebmFallback(sx,W,H,EXPORT_FPS); vid.play(); return;
   }
 
   if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} }
@@ -1254,181 +1434,177 @@ function startExportCapture() {
 
   muxer = new Mp4Muxer.Muxer({
     target: new Mp4Muxer.ArrayBufferTarget(),
-    video:  { codec: 'avc', width: W, height: H, frameRate: EXPORT_FPS },
-    ...(hasAudio ? { audio: { codec: 'aac', sampleRate, numberOfChannels: numChannels } } : {}),
-    fastStart: 'in-memory',
+    video:  { codec:'avc', width:W, height:H, frameRate:EXPORT_FPS },
+    ...(hasAudio ? {audio:{codec:'aac',sampleRate,numberOfChannels:numChannels}} : {}),
+    fastStart:'in-memory',
   });
 
   videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error:  e => console.error('VideoEncoder:', e),
+    output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),
+    error: e=>console.error('VideoEncoder:',e),
   });
-  videoEncoder.configure({ codec:'avc1.64002a', width:W, height:H, bitrate:BITRATE, framerate:EXPORT_FPS });
+  videoEncoder.configure({codec:'avc1.64002a',width:W,height:H,bitrate:BITRATE,framerate:EXPORT_FPS});
 
-  // audioEncodedFrames counter lives inside the ScriptProcessor closure
-  let customL = null, customR = null;
+  let customL=null, customR=null;
 
   if (hasAudio && typeof AudioEncoder !== 'undefined') {
     audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-      error:  e => console.error('AudioEncoder:', e),
+      output:(chunk,meta)=>muxer.addAudioChunk(chunk,meta),
+      error: e=>console.error('AudioEncoder:',e),
     });
-    audioEncoder.configure({ codec:'mp4a.40.2', sampleRate, numberOfChannels:numChannels, bitrate:192_000 });
+    audioEncoder.configure({codec:'mp4a.40.2',sampleRate,numberOfChannels:numChannels,bitrate:192_000});
 
     if (customAudioBuffer) {
       customL = customAudioBuffer.getChannelData(0);
-      customR = customAudioBuffer.numberOfChannels > 1 ? customAudioBuffer.getChannelData(1) : customL;
+      customR = customAudioBuffer.numberOfChannels>1 ? customAudioBuffer.getChannelData(1) : customL;
     } else {
-      audioProcessor = sharedAudioCtx.createScriptProcessor(4096, numChannels, numChannels);
-      // Sequential counter — only advances when we actually encode a frame.
-      // When vid.paused, we skip entirely so no silence frames sneak in and
-      // no timestamp gaps appear at resume. The counter stays frozen while
-      // paused and resumes exactly where it left off.
+      audioProcessor = sharedAudioCtx.createScriptProcessor(4096,numChannels,numChannels);
       let audioEncodedFrames = 0;
       audioProcessor.onaudioprocess = ev => {
-        // Skip if not actively recording OR if video is paused/draining.
-        // The captureStream track delivers silence for 1-2 callbacks after
-        // vid.pause() — this gate prevents those from being encoded.
-        if (recState !== 'recording' || vid.paused) return;
-
+        if (recState!=='recording'||vid.paused) return;
         const left  = ev.inputBuffer.getChannelData(0);
-        const right = numChannels > 1 ? ev.inputBuffer.getChannelData(1) : left;
-        const ts    = Math.round((audioEncodedFrames * 4096 / sampleRate) * 1e6);
-
+        const right = numChannels>1 ? ev.inputBuffer.getChannelData(1) : left;
+        const ts    = Math.round((audioEncodedFrames*4096/sampleRate)*1e6);
         const frame = new AudioData({
-          format: 'f32-planar', sampleRate,
-          numberOfFrames: left.length, numberOfChannels: numChannels,
-          timestamp: ts,
-          data: new Float32Array([...left, ...right]),
+          format:'f32-planar',sampleRate,
+          numberOfFrames:left.length,numberOfChannels:numChannels,
+          timestamp:ts, data:new Float32Array([...left,...right]),
         });
         audioEncoder.encode(frame); frame.close();
         audioEncodedFrames++;
       };
       sharedAudioSource.connect(audioProcessor);
-      const sg = sharedAudioCtx.createGain(); sg.gain.value = 0;
+      const sg=sharedAudioCtx.createGain(); sg.gain.value=0;
       audioProcessor.connect(sg); sg.connect(sharedAudioCtx.destination);
     }
   }
 
-  recState = 'recording'; updateUI(); renderPerformList();
-  statusEl.textContent = 'Recording… Right Shift to advance.';
-  sharedAudioCtx.resume().then(() => vid.play());
+  recState='recording'; updateUI(); renderPerformList();
+  statusEl.textContent='Recording… Right Shift = lyric, Left Shift = title.';
+  sharedAudioCtx.resume().then(()=>vid.play());
 
-  let nextFrameTime = 0;
-  let frameCount    = 0;
-  const frameDur    = 1e6 / EXPORT_FPS;
-  const frameStep   = 1  / EXPORT_FPS;
+  let nextFrameTime=0, frameCount=0;
+  const frameDur=1e6/EXPORT_FPS, frameStep=1/EXPORT_FPS;
 
   function captureFrame() {
-    if (recState === 'idle') return;
+    if (recState==='idle') return;
     requestAnimationFrame(captureFrame);
-    if (vid.currentTime < nextFrameTime - 0.001) return;
+    if (vid.currentTime < nextFrameTime-0.001) return;
 
-    // Custom audio aligned to video frame time
-    if (customL && audioEncoder) {
-      const s = Math.floor(nextFrameTime * sampleRate);
-      const len = Math.floor(sampleRate / EXPORT_FPS);
-      const end = Math.min(s + len, customL.length);
-      if (s < customL.length) {
-        const data = new Float32Array((end-s)*2);
-        data.set(customL.subarray(s,end), 0);
-        data.set(customR.subarray(s,end), end-s);
-        const af = new AudioData({
-          format:'f32-planar', sampleRate,
-          numberOfFrames:end-s, numberOfChannels:numChannels,
-          timestamp:Math.round(nextFrameTime*1e6), data,
-        });
+    if (customL&&audioEncoder) {
+      const s=Math.floor(nextFrameTime*sampleRate);
+      const len=Math.floor(sampleRate/EXPORT_FPS);
+      const end=Math.min(s+len,customL.length);
+      if (s<customL.length) {
+        const data=new Float32Array((end-s)*2);
+        data.set(customL.subarray(s,end),0);
+        data.set(customR.subarray(s,end),end-s);
+        const af=new AudioData({format:'f32-planar',sampleRate,numberOfFrames:end-s,
+          numberOfChannels:numChannels,timestamp:Math.round(nextFrameTime*1e6),data});
         audioEncoder.encode(af); af.close();
       }
     }
 
-    compCtx.drawImage(vid, 0, 0, W, H);
+    compCtx.drawImage(vid,0,0,W,H);
     for (const al of getActiveLines()) {
-      const box = textBoxes[al.boxId] ?? textBoxes[0];
-      const tw  = typewriterState[al.boxId];
-      drawGlyphs(compCtx, al.text, box, sx, flickerMaps[al.boxId], tw ? tw.chars : Infinity);
+      const box=textBoxes[al.boxId]??textBoxes[0];
+      const tw=typewriterState[al.boxId];
+      drawGlyphs(compCtx,al.text,box,sx,flickerMaps[al.boxId],tw?tw.chars:Infinity);
     }
-    drawStickers(compCtx, sx);
+    const titleText=getActiveTitleText();
+    if (titleText&&titleBox) {
+      const tw=typewriterState['title'];
+      drawGlyphs(compCtx,titleText,titleBox,sx,titleFlickerMap,tw?tw.chars:Infinity);
+    }
+    drawStickers(compCtx,sx);
 
-    const frame = new VideoFrame(compCanvas, { timestamp:frameCount*frameDur, duration:frameDur });
-    videoEncoder.encode(frame, { keyFrame: frameCount % Math.round(EXPORT_FPS*2) === 0 });
-    frame.close();
-    frameCount++;
-    nextFrameTime += frameStep;
+    const frame=new VideoFrame(compCanvas,{timestamp:frameCount*frameDur,duration:frameDur});
+    videoEncoder.encode(frame,{keyFrame:frameCount%Math.round(EXPORT_FPS*2)===0});
+    frame.close(); frameCount++; nextFrameTime+=frameStep;
     if (vid.ended) stopExportCapture();
   }
   requestAnimationFrame(captureFrame);
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  STOP & SAVE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 async function stopExportCapture() {
-  if (recState === 'idle') return;
-  recState = 'idle'; updateUI();
+  if (recState==='idle') return;
+  recState='idle'; updateUI();
   if (videoEncoder) {
     encOverlay.classList.add('show');
-    encLabel.textContent = 'Encoding…'; encFill.style.width = '15%';
-    if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
-    if (audioEncoder)   { try { await audioEncoder.flush(); } catch(e) {} }
-    encFill.style.width = '55%';
-    try { await videoEncoder.flush(); } catch(e) {}
-    encFill.style.width = '85%';
+    encLabel.textContent='Encoding…'; encFill.style.width='15%';
+    if (audioProcessor){audioProcessor.disconnect();audioProcessor=null;}
+    if (audioEncoder){try{await audioEncoder.flush();}catch(e){}}
+    encFill.style.width='55%';
+    try{await videoEncoder.flush();}catch(e){}
+    encFill.style.width='85%';
     muxer.finalize();
-    if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx = null; }
-    sharedAudioSource = null;
-    const { buffer } = muxer.target;
-    const blob = new Blob([buffer], { type:'video/mp4' });
-    const url  = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    if (sharedAudioCtx){try{sharedAudioCtx.close();}catch(e){}sharedAudioCtx=null;}
+    sharedAudioSource=null;
+    const {buffer}=muxer.target;
+    const blob=new Blob([buffer],{type:'video/mp4'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
     a.href=url; a.download='lyrics_overlay.mp4'; a.click();
     URL.revokeObjectURL(url);
-    encFill.style.width = '100%'; encLabel.textContent = 'Done! ✓';
-    statusEl.textContent = 'MP4 saved! Reset to record again.';
-    setTimeout(() => encOverlay.classList.remove('show'), 1500);
+    encFill.style.width='100%';
+    encLabel.textContent='Done! ✓';
+    statusEl.textContent='MP4 saved! Reset to record again.';
+    setTimeout(()=>encOverlay.classList.remove('show'),1500);
     videoEncoder=null; audioEncoder=null; muxer=null;
   } else { stopWebmFallback(); }
 }
 
+// ═══════════════════════════════════════
+//  DISCARD
+// ═══════════════════════════════════════
 async function discardRecording() {
-  recState = 'idle';
-  if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e) {} audioProcessor=null; }
-  if (videoEncoder)   { try { videoEncoder.close();  } catch(e) {} videoEncoder=null; }
-  if (audioEncoder)   { try { audioEncoder.close();  } catch(e) {} audioEncoder=null; }
+  recState='idle';
+  if (audioProcessor){try{audioProcessor.disconnect();}catch(e){}audioProcessor=null;}
+  if (videoEncoder){try{videoEncoder.close();}catch(e){}videoEncoder=null;}
+  if (audioEncoder){try{audioEncoder.close();}catch(e){}audioEncoder=null;}
   muxer=null;
-  if (sharedAudioCtx) { try { sharedAudioCtx.close(); } catch(e) {} sharedAudioCtx=null; }
+  if (sharedAudioCtx){try{sharedAudioCtx.close();}catch(e){}sharedAudioCtx=null;}
   sharedAudioSource=null;
-  if (mrec) { try { mrec.stop(); } catch(e) {} mrec=null; mchunks=[]; }
+  if (mrec){try{mrec.stop();}catch(e){}mrec=null;mchunks=[];}
 }
 
-function startWebmFallback(sx, W, H, fps) {
-  const vidStream = vid.captureStream?.() ?? vid.mozCaptureStream?.();
-  const tracks    = vidStream?.getAudioTracks() ?? [];
-  const stream    = compCanvas.captureStream(fps);
-  tracks.forEach(t => stream.addTrack(t));
-  const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m)) ?? '';
-  mrec = new MediaRecorder(stream, mime?{mimeType:mime}:{});
-  mchunks = [];
-  mrec.ondataavailable = e => { if (e.data.size>0) mchunks.push(e.data); };
-  mrec.onstop = () => {
+// ═══════════════════════════════════════
+//  WEBM FALLBACK
+// ═══════════════════════════════════════
+function startWebmFallback(sx,W,H,fps) {
+  const vidStream=vid.captureStream?.()??vid.mozCaptureStream?.();
+  const tracks=vidStream?.getAudioTracks()??[];
+  const stream=compCanvas.captureStream(fps);
+  tracks.forEach(t=>stream.addTrack(t));
+  const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))??'';
+  mrec=new MediaRecorder(stream,mime?{mimeType:mime}:{});
+  mchunks=[];
+  mrec.ondataavailable=e=>{if(e.data.size>0)mchunks.push(e.data);};
+  mrec.onstop=()=>{
     const b=new Blob(mchunks,{type:'video/webm'});
     const u=URL.createObjectURL(b);
-    const a=document.createElement('a'); a.href=u; a.download='lyrics_overlay.webm'; a.click();
+    const a=document.createElement('a');a.href=u;a.download='lyrics_overlay.webm';a.click();
     URL.revokeObjectURL(u);
     statusEl.textContent='Saved WebM. Convert at handbrake.fr for MP4.';
-    mrec=null; mchunks=[];
+    mrec=null;mchunks=[];
   };
   mrec.start(100);
   let nextT=0;
   function compLoop() {
     if (recState==='idle') return;
     requestAnimationFrame(compLoop);
-    if (vid.currentTime < nextT-0.001) return;
+    if (recState==='paused') return;
+    if (vid.currentTime<nextT-0.001) return;
     compCtx.drawImage(vid,0,0,W,H);
     for (const al of getActiveLines()) {
       const box=textBoxes[al.boxId]??textBoxes[0];
       drawGlyphs(compCtx,al.text,box,sx,flickerMaps[al.boxId],Infinity);
     }
+    const tt=getActiveTitleText();
+    if (tt&&titleBox) drawGlyphs(compCtx,tt,titleBox,sx,titleFlickerMap,Infinity);
     drawStickers(compCtx,sx);
     nextT+=1/fps;
   }
@@ -1437,82 +1613,87 @@ function startWebmFallback(sx, W, H, fps) {
 function stopWebmFallback() {
   if (!mrec) return;
   mrec.requestData();
-  setTimeout(()=>{ try{mrec.stop();}catch(e){} },150);
+  setTimeout(()=>{try{mrec.stop();}catch(e){}},150);
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  LYRICS PROFILES
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 async function fetchProfiles() {
   if (!USE_JSONBIN) {
     try { return JSON.parse(localStorage.getItem('lyricProfiles')||'[]'); } catch { return []; }
   }
   try {
-    const res = await fetch(PROFILES_API);
+    const res=await fetch(PROFILES_API);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch(e) { console.error('profiles fetch:',e); return null; }
+  } catch(e){console.error('profiles fetch:',e);return null;}
 }
 async function saveProfiles(profiles) {
-  if (!USE_JSONBIN) { localStorage.setItem('lyricProfiles',JSON.stringify(profiles)); return true; }
+  if (!USE_JSONBIN){localStorage.setItem('lyricProfiles',JSON.stringify(profiles));return true;}
   try {
-    const res = await fetch(PROFILES_API,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(profiles)});
+    const res=await fetch(PROFILES_API,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(profiles)});
     return res.ok;
-  } catch(e) { return false; }
+  } catch(e){console.error('profiles save:',e);return false;}
 }
-function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderProfileList(profiles) {
   ppList.innerHTML='';
-  if (!profiles?.length) { ppList.innerHTML='<div class="pp-empty">No saved lyrics yet</div>'; return; }
+  if (!profiles?.length){ppList.innerHTML='<div class="pp-empty">No saved lyrics yet</div>';return;}
   for (const p of [...profiles].reverse()) {
-    const item=document.createElement('div'); item.className='pp-item';
+    const item=document.createElement('div');
+    item.className='pp-item';
     const lc=(p.lyrics.match(/\n/g)||[]).length+1;
-    item.innerHTML=`<div class="pp-item-name">${escHtml(p.name)}</div><div class="pp-item-lines">${lc} line${lc!==1?'s':''}</div><button class="pp-item-load" data-id="${p.id}">Load</button><button class="pp-item-del" data-id="${p.id}" title="Delete">×</button>`;
+    item.innerHTML=`
+      <div class="pp-item-name">${escHtml(p.name)}</div>
+      <div class="pp-item-lines">${lc} line${lc!==1?'s':''}</div>
+      <button class="pp-item-load" data-id="${p.id}">Load</button>
+      <button class="pp-item-del" data-id="${p.id}" title="Delete">×</button>`;
     item.querySelector('.pp-item-load').addEventListener('click',()=>{
       lta.value=p.lyrics; ppStatus.textContent=`Loaded "${p.name}"`; renderEditArea(); closeProfilePanel();
     });
     item.querySelector('.pp-item-del').addEventListener('click',async()=>{
-      if(!confirm(`Delete "${p.name}"?`)) return;
+      if (!confirm(`Delete "${p.name}"?`)) return;
       ppStatus.textContent='Deleting…';
       const all=await fetchProfiles();
-      if(all===null){ppStatus.textContent='⚠ Network error';return;}
+      if (all===null){ppStatus.textContent='⚠ Network error';return;}
       const updated=all.filter(x=>x.id!==p.id);
       const ok=await saveProfiles(updated);
-      if(ok){renderProfileList(updated);ppStatus.textContent='Deleted.';}
+      if (ok){renderProfileList(updated);ppStatus.textContent='Deleted.';}
       else ppStatus.textContent='⚠ Save failed';
     });
     ppList.appendChild(item);
   }
 }
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function openProfilePanel() {
-  profilePanel.classList.add('open'); profileToggle.classList.add('on');
-  ppStatus.textContent='Loading…'; ppList.innerHTML='';
+  profilePanel.classList.add('open');profileToggle.classList.add('on');
+  ppStatus.textContent='Loading…';ppList.innerHTML='';
   const profiles=await fetchProfiles();
-  if(profiles===null){ppStatus.textContent='⚠ Check JSONBin credentials';return;}
+  if (profiles===null){ppStatus.textContent='⚠ Check JSONBin credentials';return;}
   renderProfileList(profiles);
   ppStatus.textContent=`${profiles.length} profile${profiles.length!==1?'s':''} saved`;
 }
-function closeProfilePanel() { profilePanel.classList.remove('open'); profileToggle.classList.remove('on'); }
+function closeProfilePanel(){profilePanel.classList.remove('open');profileToggle.classList.remove('on');}
 profileToggle.addEventListener('click',()=>profilePanel.classList.contains('open')?closeProfilePanel():openProfilePanel());
 ppClose.addEventListener('click',closeProfilePanel);
 ppSaveBtn.addEventListener('click',async()=>{
   const name=ppNameInput.value.trim();
-  if(!name){ppNameInput.focus();return;}
+  if (!name){ppNameInput.focus();return;}
   const lyrics=lta.value.trim();
-  if(!lyrics){ppStatus.textContent='Nothing to save.';return;}
-  ppStatus.textContent='Saving…'; ppSaveBtn.disabled=true;
+  if (!lyrics){ppStatus.textContent='Nothing to save.';return;}
+  ppStatus.textContent='Saving…';ppSaveBtn.disabled=true;
   const profiles=await fetchProfiles();
-  if(profiles===null){ppStatus.textContent='⚠ Network error';ppSaveBtn.disabled=false;return;}
+  if (profiles===null){ppStatus.textContent='⚠ Network error';ppSaveBtn.disabled=false;return;}
   profiles.push({id:Date.now(),name,lyrics});
   const ok=await saveProfiles(profiles);
   ppSaveBtn.disabled=false;
-  if(ok){ppNameInput.value='';renderProfileList(profiles);ppStatus.textContent=`Saved "${name}"!`;}
+  if (ok){ppNameInput.value='';renderProfileList(profiles);ppStatus.textContent=`Saved "${name}"!`;}
   else ppStatus.textContent='⚠ Save failed';
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 //  INIT
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════
 renderEditArea();
 updateUI();
 
