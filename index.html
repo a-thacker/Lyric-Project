@@ -511,7 +511,7 @@ spClose.addEventListener('click', () => {
 });
 shadowOpacity.addEventListener('input', () => { shadowValue.textContent = shadowOpacity.value + '%'; });
 fontStyle.addEventListener('change', () => {
-  Object.keys(glyphs).forEach(k => delete glyphs[k]);
+  // No need to clear glyphs — cache is keyed per font style
   Object.keys(tintCache).forEach(k => delete tintCache[k]);
 });
 twSpeed?.addEventListener('input', () => { if (twSpeedVal) twSpeedVal.textContent = twSpeed.value; });
@@ -637,9 +637,11 @@ function loadStickerImgs(name) {
   return imgs;
 }
 function addSticker(name) {
+  const w = pc.width  || 300;
+  const h = pc.height || 500;
   stickers.push({
     name, imgs: loadStickerImgs(name),
-    x: pc.width * 0.5 - 40, y: pc.height * 0.5 - 40,
+    x: w * 0.4, y: h * 0.4,
     scale: 1.0, flickerIdx: 0,
   });
 }
@@ -744,21 +746,23 @@ function updateUI() {
 //  GLYPHS
 // ═══════════════════════════════════════
 function loadG(key) {
-  if (glyphs[key]) return;
-  glyphs[key] = [];
   const style = fontStyle?.value ?? 'bold';
+  const cacheKey = `${style}__${key}`;  // include font so switching fonts loads fresh
+  if (glyphs[cacheKey]) return cacheKey;
+  glyphs[cacheKey] = [];
   const { dir, prefix } = GLYPH_PATHS[style] ?? GLYPH_PATHS.bold;
   for (let i = 1; i <= VARIANTS; i++) {
     const img = new Image();
     img.src = `${dir}${prefix}${key}_${i}.png`;
-    glyphs[key].push(img);
+    glyphs[cacheKey].push(img);
   }
+  return cacheKey;
 }
 
 function getG(c, vi) {
   const key = charToFileKey(c);
-  if (!glyphs[key]) loadG(key);
-  const g = glyphs[key]?.[vi];
+  const cacheKey = loadG(key);
+  const g = glyphs[cacheKey]?.[vi];
   return (g && g.complete && g.naturalWidth > 0) ? g : null;
 }
 
